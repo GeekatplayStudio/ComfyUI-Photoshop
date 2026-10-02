@@ -1,0 +1,14 @@
+[project]
+name = "comfyui-geekatplay-photoshop"
+description = "Geekatplay Photoshop Bridge - send Photoshop layers to ComfyUI workflows and get the results back as new layers. By Geekatplay Studio / Vladimir Chopine"
+version = "1.0.0"
+license = { text = "MIT" }
+dependencies = []
+
+[project.urls]
+Repository = "https://github.com/GeekatplayStudio/ComfyUI-Photoshop"
+
+[tool.comfy]
+PublisherId = "geekatplay"
+DisplayName = "Geekatplay Photoshop Bridge"
+Icon = ""

@@ -1,0 +1,145 @@
+/*
+ * Geekatplay Photoshop Bridge - tests for photoshop/workflow.js
+ * by Geekatplay Studio - Vladimir Chopine
+ * https://www.geekatplay.com
+ *
+ *     node --test "tests/*.test.js"
+ */
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const { parseWorkflow, findTargets, resolveTargets, fitSize, prepareWorkflow, resultImages, historyError, promptError } = require("../photoshop/workflow.js");
+
+const API = {
+    "1": { class_type: "GeekatplayPhotoshopImage", inputs: { image: "photoshop/old.png" } },
+    "2": { class_type: "GeekatplayPhotoshopPrompt", inputs: { text: "default prompt" } },
+    "3": { class_type: "CLIPTextEncode", inputs: { text: ["2", 0], clip: ["9", 1] } },
+    "4": { class_type: "KSampler", inputs: { seed: 5, steps: 20, model: ["9", 0], positive: ["3", 0] } },
+    "6": { class_type: "RandomNoise", inputs: { noise_seed: ["7", 0] } },
+    "8": { class_type: "GeekatplaySendToPhotoshop", inputs: { images: ["4", 0], filename_prefix: "Photoshop/result" } },
+};
+
+// A plain workflow with no Photoshop nodes: checkpoint, two encoders, ControlNet passing both through.
+const PLAIN = {
+    "1": { class_type: "CheckpointLoaderSimple", inputs: { ckpt_name: "a.safetensors" } },
+    "2": { class_type: "CLIPTextEncode", _meta: { title: "Positive" }, inputs: { text: "a fox", clip: ["1", 1] } },
+    "3": { class_type: "CLIPTextEncode", _meta: { title: "Negative" }, inputs: { text: "blurry", clip: ["1", 1] } },
+    "4": { class_type: "LoadImage", inputs: { image: "a.png" } },
+    "5": { class_type: "ControlNetApplyAdvanced", inputs: { positive: ["2", 0], negative: ["3", 0], image: ["4", 0] } },
+    "6": { class_type: "EmptyLatentImage", inputs: { width: 1024, height: 1024, batch_size: 1 } },
+    "7": { class_type: "KSampler", inputs: { seed: 1, model: ["1", 0], positive: ["5", 0], negative: ["5", 1], latent_image: ["6", 0] } },
+};
+
+const ids = (list) => list.map((t) => t.id);
+
+test("parseWorkflow accepts API and regular workflows and explains junk", () => {
+    assert.deepEqual(parseWorkflow(JSON.stringify(API)), API);
+    const ui = { nodes: [{ id: 1, type: "KSampler", mode: 0 }], links: [] };
+    assert.deepEqual(parseWorkflow(JSON.stringify(ui)), ui);
+    assert.throws(() => parseWorkflow("{not json"), /Not a JSON file/);
+    assert.throws(() => parseWorkflow("{}"), /Not a ComfyUI workflow/);
+    assert.throws(() => parseWorkflow("[1, 2]"), /Not a ComfyUI workflow/);
+});
+
+test("Photoshop nodes are the automatic targets", () => {
+    const targets = resolveTargets(API);
+    assert.deepEqual(targets.image, [{ id: "1", key: "image", label: "GeekatplayPhotoshopImage (#1)" }]);
+    assert.deepEqual(targets.prompt, [{ id: "2", key: "text", label: "GeekatplayPhotoshopPrompt (#2)" }]);
+});
+
+test("without Photoshop nodes: the only Load Image and the text feeding the sampler's positive input", () => {
+    const targets = resolveTargets(PLAIN);
+    assert.deepEqual(ids(targets.image), ["4"]);
+    assert.deepEqual(ids(targets.prompt), ["2"], "the negative encoder behind the ControlNet is not picked");
+    assert.deepEqual(ids(targets.found.prompt.candidates), ["2", "3"]);
+});
+
+test("a prompt primitive feeding the encoder, guiders and titles are understood", () => {
+    const primitive = {
+        "1": { class_type: "PrimitiveStringMultiline", inputs: { value: "a fox" } },
+        "2": { class_type: "CLIPTextEncode", inputs: { text: ["1", 0] } },
+        "3": { class_type: "FluxGuidance", inputs: { conditioning: ["2", 0], guidance: 3.5 } },
+        "4": { class_type: "BasicGuider", inputs: { conditioning: ["3", 0] } },
+    };
+    assert.deepEqual(resolveTargets(primitive).prompt, [{ id: "1", key: "value", label: "PrimitiveStringMultiline (#1)" }]);
+
+    const titled = JSON.parse(JSON.stringify(PLAIN));
+    titled["8"] = { class_type: "LoadImage", _meta: { title: "Photoshop layer" }, inputs: { image: "b.png" } };
+    assert.deepEqual(ids(resolveTargets(titled).image), ["8"]);
+});
+
+test("ambiguous workflows ask the user, and the saved choice is used", () => {
+    const two = JSON.parse(JSON.stringify(PLAIN));
+    two["8"] = { class_type: "LoadImage", inputs: { image: "b.png" } };
+    two["9"] = { class_type: "CLIPTextEncode", inputs: { text: "second" } };
+    two["7"].inputs.positive = ["10", 0];
+    two["10"] = { class_type: "ConditioningCombine", inputs: { conditioning_1: ["5", 0], conditioning_2: ["9", 0] } };
+    assert.equal(findTargets(two).image.auto, null);
+    assert.equal(findTargets(two).prompt.auto, null);
+    assert.throws(() => resolveTargets(two), /several nodes.*layer/);
+    assert.throws(() => resolveTargets(two, { image: "8" }), /several nodes.*prompt/);
+    const targets = resolveTargets(two, { image: "8", prompt: "9" });
+    assert.deepEqual([ids(targets.image), ids(targets.prompt)], [["8"], ["9"]]);
+});
+
+test("a workflow without an image input generates from the prompt", () => {
+    const generate = JSON.parse(JSON.stringify(PLAIN));
+    delete generate["4"];
+    delete generate["5"].inputs.image;
+    assert.deepEqual(resolveTargets(generate).image, []);
+});
+
+test("prepareWorkflow fills image, prompt and seeds without touching the original", () => {
+    const prepared = prepareWorkflow(API, { image: "photoshop/new.png", prompt: "a fennec girl", targets: resolveTargets(API), randomizeSeed: true, random: () => 0.5 });
+    assert.equal(prepared["1"].inputs.image, "photoshop/new.png");
+    assert.equal(prepared["2"].inputs.text, "a fennec girl");
+    assert.equal(prepared["4"].inputs.seed, 2 ** 47);
+    assert.deepEqual(prepared["6"].inputs.noise_seed, ["7", 0], "linked seeds stay linked");
+    assert.equal(API["1"].inputs.image, "photoshop/old.png");
+    assert.equal(API["4"].inputs.seed, 5);
+
+    const kept = prepareWorkflow(API, { image: "photoshop/new.png", prompt: "  ", targets: resolveTargets(API) });
+    assert.equal(kept["2"].inputs.text, "default prompt");
+    assert.equal(kept["4"].inputs.seed, 5);
+});
+
+test("generation size follows the target shape and keeps the workflow's pixel count", () => {
+    assert.deepEqual(fitSize({ width: 3000, height: 2000 }, 1024 * 1024), { width: 1248, height: 832 });
+    assert.deepEqual(fitSize({ width: 100, height: 100 }, 1024 * 1024), { width: 1024, height: 1024 });
+
+    const sized = { ...PLAIN, "8": { class_type: "GeekatplayPhotoshopSize", inputs: { width: 1024, height: 1024 } } };
+    const withNode = prepareWorkflow(sized, { targets: resolveTargets(sized), size: { width: 1000, height: 2000 } });
+    assert.deepEqual([withNode["8"].inputs.width, withNode["8"].inputs.height], [720, 1456]);
+    assert.equal(withNode["6"].inputs.width, 1024, "empty latents are left alone when a Photoshop Size node exists");
+
+    const plain = prepareWorkflow(PLAIN, { targets: resolveTargets(PLAIN), size: { width: 1000, height: 2000 } });
+    assert.deepEqual([plain["6"].inputs.width, plain["6"].inputs.height], [720, 1456]);
+});
+
+test("resultImages prefers Send to Photoshop, then saved images, then previews", () => {
+    const img = (filename, type) => ({ filename, subfolder: "", type });
+    const outputs = {
+        "8": { images: [img("sent_00001_.png", "output")] },
+        "10": { images: [img("saved_00001_.png", "output")] },
+        "11": { images: [img("preview_00001_.png", "temp")] },
+    };
+    const wf = { ...API, "10": { class_type: "SaveImage", inputs: {} }, "11": { class_type: "PreviewImage", inputs: {} } };
+    assert.deepEqual(resultImages(wf, { outputs }).map((i) => i.filename), ["sent_00001_.png"]);
+    delete outputs["8"];
+    assert.deepEqual(resultImages(wf, { outputs }).map((i) => i.filename), ["saved_00001_.png"]);
+    delete outputs["10"];
+    assert.deepEqual(resultImages(wf, { outputs }).map((i) => i.filename), ["preview_00001_.png"]);
+    assert.deepEqual(resultImages(wf, { outputs: { "12": { images: [img("clip.mp4", "output")] } } }), []);
+});
+
+test("historyError and promptError read ComfyUI's error shapes", () => {
+    assert.equal(historyError({ status: { status_str: "success", messages: [] } }), null);
+    const failed = { status: { status_str: "error", messages: [["execution_start", {}], ["execution_error", { node_type: "KSampler", exception_message: "CUDA out of memory" }]] } };
+    assert.equal(historyError(failed), "KSampler: CUDA out of memory");
+    assert.equal(historyError({ status: { status_str: "error", messages: [["execution_interrupted", {}]] } }), "Cancelled.");
+
+    const rejected = {
+        error: { type: "prompt_outputs_failed_validation", message: "Prompt outputs failed validation" },
+        node_errors: { "4": { class_type: "CheckpointLoaderSimple", errors: [{ message: "Value not in list", details: "ckpt_name: 'x.safetensors' not in []" }] } },
+    };
+    assert.equal(promptError(rejected), "Prompt outputs failed validation\nCheckpointLoaderSimple: Value not in list (ckpt_name: 'x.safetensors' not in [])");
+});

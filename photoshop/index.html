@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<!--
+  Geekatplay Photoshop Bridge - Photoshop panel
+  by Geekatplay Studio - Vladimir Chopine
+  https://www.geekatplay.com
+-->
+<html>
+<head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header class="status">
+        <div id="status-dot" class="dot"></div>
+        <sp-body size="XS" id="status-text">Connecting...</sp-body>
+    </header>
+
+    <nav class="tabs">
+        <div class="tab selected" data-page="page-active">Active Workflow</div>
+        <div class="tab" data-page="page-registered">Workflows</div>
+        <div class="tab" data-page="page-settings">Settings</div>
+    </nav>
+
+    <section id="page-active" class="page">
+        <sp-body size="S">Sends the selection (or the selected layer) to every Photoshop Image node in the workflow open in ComfyUI, and the prompt to its Photoshop Prompt nodes. Queue it there. Results from Send to Photoshop nodes come back as new layers.</sp-body>
+        <sp-label>Prompt for the Photoshop Prompt nodes (optional)</sp-label>
+        <sp-textarea id="active-prompt"></sp-textarea>
+        <sp-button id="send-active" variant="cta">Send Layer to ComfyUI</sp-button>
+        <sp-checkbox id="place-results">Place results from ComfyUI as new layers</sp-checkbox>
+    </section>
+
+    <section id="page-registered" class="page hidden">
+        <sp-body size="S" id="workflows-note" class="hidden"></sp-body>
+        <sp-label>Workflow</sp-label>
+        <select id="workflow-select"></select>
+        <sp-label>Prompt (empty = the prompt saved in the workflow)</sp-label>
+        <sp-textarea id="prompt"></sp-textarea>
+        <sp-label>Inputs: layer goes to / prompt goes to</sp-label>
+        <select id="image-target"></select>
+        <select id="prompt-target"></select>
+        <sp-body size="XS" id="inputs-hint" class="hint"></sp-body>
+        <sp-checkbox id="randomize-seed">New seed each run</sp-checkbox>
+        <div class="row">
+            <sp-button id="run" variant="cta">Run</sp-button>
+            <sp-button id="cancel" variant="secondary" quiet>Cancel</sp-button>
+        </div>
+    </section>
+
+    <section id="page-settings" class="page hidden">
+        <sp-label>ComfyUI server</sp-label>
+        <div class="row">
+            <sp-textfield id="server" class="grow" placeholder="http://127.0.0.1:8188"></sp-textfield>
+            <sp-button id="connect" variant="secondary">Connect</sp-button>
+        </div>
+        <sp-label>Max size sent (long edge in pixels, 0 = full size)</sp-label>
+        <sp-textfield id="max-edge" type="number"></sp-textfield>
+
+        <sp-divider size="small"></sp-divider>
+        <sp-label>Registered workflows</sp-label>
+        <sp-body size="XS" id="builtin-count" class="hint"></sp-body>
+        <div id="workflow-list"></div>
+        <sp-button id="add-workflow" variant="secondary">Add Workflow...</sp-button>
+        <sp-body size="XS" class="hint">Register workflows saved in ComfyUI (Workflow &gt; Save or Export (API)). The layer goes to the Photoshop Image node (or the only Load Image node), the prompt to the Photoshop Prompt node.</sp-body>
+    </section>
+
+    <footer>
+        <sp-progressbar id="progress" class="hidden" max="100" value="0"></sp-progressbar>
+        <sp-body size="XS" id="message"></sp-body>
+        <sp-action-button id="copy-message" class="hidden" quiet>Copy message</sp-action-button>
+        <sp-detail class="credit">Geekatplay Studio - geekatplay.com</sp-detail>
+    </footer>
+
+    <script src="main.js"></script>
+</body>
+</html>

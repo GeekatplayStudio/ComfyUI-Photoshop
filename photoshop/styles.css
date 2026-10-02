@@ -1,0 +1,139 @@
+/*
+ * Geekatplay Photoshop Bridge - panel styles
+ * by Geekatplay Studio - Vladimir Chopine
+ * https://www.geekatplay.com
+ */
+body {
+    color: var(--uxp-host-text-color);
+    font-size: var(--uxp-host-font-size);
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+}
+
+.status {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.dot {
+    width: 8px;
+    height: 8px;
+    min-width: 8px;
+    border-radius: 4px;
+    margin-right: 6px;
+    background-color: #d7373f;
+}
+
+.dot.ok {
+    background-color: #2d9d78;
+}
+
+.tabs {
+    display: flex;
+    flex-direction: row;
+    border-bottom: 1px solid var(--uxp-host-border-color);
+    margin-bottom: 10px;
+}
+
+.tab {
+    padding: 4px 8px;
+    margin-bottom: -1px;
+    color: var(--uxp-host-text-color-secondary);
+    border-bottom: 2px solid transparent;
+}
+
+.tab:hover {
+    color: var(--uxp-host-text-color);
+}
+
+.tab.selected {
+    color: var(--uxp-host-text-color);
+    border-bottom: 2px solid var(--uxp-host-link-text-color);
+}
+
+.page {
+    display: flex;
+    flex-direction: column;
+}
+
+.page > * {
+    margin-bottom: 8px;
+}
+
+.row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
+.row > * {
+    margin-right: 6px;
+}
+
+.grow {
+    flex: 1 1 auto;
+}
+
+select,
+sp-textfield,
+sp-textarea {
+    width: 100%;
+}
+
+.row sp-textfield.grow {
+    width: auto;
+}
+
+sp-textarea {
+    height: 90px;
+}
+
+.hint {
+    color: var(--uxp-host-text-color-secondary);
+}
+
+.workflow-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.workflow-row sp-textfield {
+    flex: 1 1 auto;
+    width: auto;
+    margin-right: 4px;
+}
+
+footer {
+    display: flex;
+    flex-direction: column;
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid var(--uxp-host-border-color);
+}
+
+footer > * {
+    margin-bottom: 4px;
+}
+
+sp-progressbar {
+    width: 100%;
+}
+
+#workflows-note.error,
+#message.error {
+    color: #f29423;
+}
+
+.credit {
+    color: var(--uxp-host-text-color-secondary);
+}
+
+/* last, so it wins over the display rules above */
+.hidden {
+    display: none;
+}
