@@ -6,7 +6,7 @@
 const comfy = require("./comfy.js");
 const layers = require("./layers.js");
 const store = require("./store.js");
-const { checkApiWorkflow, findTargets, resolveTargets, prepareWorkflow, resultImages, historyError } = require("./workflow.js");
+const { checkApiWorkflow, findTargets, resolveTargets, modelFiles, prepareWorkflow, resultImages, historyError } = require("./workflow.js");
 const { isUiWorkflow, uiNodeTypes, convertUiWorkflow } = require("./convert.js");
 
 const $ = (id) => document.getElementById(id);
@@ -19,6 +19,7 @@ let lastState = { running: [], pending: [] };
 const sentLayers = new Map();     // ComfyUI image name -> target, to place active-workflow results over their layer
 const ownPrompts = new Set();     // prompts queued by this panel; their results are placed from /history
 const jobs = new Map();           // prompt id -> { label, target, workflow, missing, note }
+let lastModels = null;            // model files of the last workflow run from the panel
 let placing = Promise.resolve();  // placements run one at a time
 
 function showMessage(text, isError = false) {
@@ -210,6 +211,14 @@ async function runWorkflow() {
     }
 
     const workflow = prepareWorkflow(api, { image, prompt, targets, size: image ? null : source, randomizeSeed: settings.randomizeSeed });
+    // A workflow with other models than the last one starts with free memory.
+    const models = modelFiles(workflow);
+    if (lastModels !== null && models !== lastModels) {
+        showMessage("Unloading the previous models...");
+        await comfy.freeMemory();
+    }
+    lastModels = models;
+
     const id = comfy.newPromptId();
     const label = prompt ? `${entry.name}: ${prompt.slice(0, 40)}` : entry.name;
     ownPrompts.add(id);

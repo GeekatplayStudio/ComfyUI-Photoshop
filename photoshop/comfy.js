@@ -98,6 +98,19 @@ function interrupt(promptId) {
     return postJson("/interrupt", { prompt_id: promptId });
 }
 
+/*
+ * Unloads all models and clears ComfyUI's node cache. ComfyUI applies this between queue
+ * items, so wait until an idle server has done it before queueing the next workflow.
+ */
+async function freeMemory() {
+    await postJson("/free", { unload_models: true, free_memory: true });
+    for (let i = 0; i < 40; i++) {
+        const st = await state();
+        if (!st.freeing || st.running.length) return;
+        await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+}
+
 function deleteQueued(promptIds) {
     return postJson("/queue", { delete: promptIds });
 }
@@ -117,4 +130,4 @@ function newPromptId() {
     return `${s.slice(0, 8)}-${s.slice(8, 12)}-${s.slice(12, 16)}-${s.slice(16, 20)}-${s.slice(20)}`;
 }
 
-module.exports = { setServer, systemStats, nodeDefs, uploadLayer, sendToOpenWorkflow, builtinWorkflows, state, queuePrompt, history, interrupt, deleteQueued, downloadImage, newPromptId };
+module.exports = { setServer, systemStats, nodeDefs, uploadLayer, sendToOpenWorkflow, builtinWorkflows, state, queuePrompt, history, interrupt, freeMemory, deleteQueued, downloadImage, newPromptId };

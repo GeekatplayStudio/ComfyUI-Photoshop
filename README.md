@@ -8,6 +8,7 @@ By **Geekatplay Studio - Vladimir Chopine** - [www.geekatplay.com](https://www.g
 
 - **Generate** - type a prompt, get a new layer. Built-in workflows for **Z-Image Turbo,
   Qwen Image, Flux.2 Klein and SDXL** are ready right after installation.
+- **Remove backgrounds** - one click returns the subject on a transparent layer.
 - **Edit** - send a selection or a layer with a prompt; the result comes back as a new
   layer exactly over the area you sent.
 - **Work live** - push a layer into the workflow open in ComfyUI, tweak and re-run there,
@@ -124,6 +125,9 @@ Pick a workflow, type a prompt, press **Run**. ComfyUI runs it without the brows
 - An empty prompt keeps the prompt saved in the workflow.
 - **New seed each run** gives every `seed` / `noise_seed` a new value.
 - **Inputs** shows which node receives the layer and which the prompt, and lets you change it.
+- When you run a workflow that loads other models than the previous one, the panel first
+  asks ComfyUI to unload its models and clear its cache, so the new models start with
+  free memory. Running the same models again keeps them loaded.
 - The status line shows the queue position and sampler steps. **Cancel** stops your jobs.
 - **Copy message** copies the status and error text, for example to report a problem.
 
@@ -150,6 +154,7 @@ this pack's folder, so you can open them and change models or settings. The file
 | --- | --- | --- |
 | Generate / Edit - Z-Image Turbo | `z_image_turbo_bf16`, `qwen_3_4b`, `ae` | 8 steps. Edit is image-to-image (denoise 0.6). |
 | Generate / Edit - Qwen Image 2.1 | `qwen_image_2.1_int8_convrot`, `qwen3vl_8b_int8_convrot`, `qwen_image_2.1_vae_bf16` | Edit follows instructions ("make it winter"). |
+| Remove Background - Qwen Image 2.1 | same as Qwen Image 2.1 | Returns the subject on a transparent background. Leave the prompt empty. |
 | Generate / Edit - Flux.2 Klein 9B | `flux-2-klein-9b-fp8`, `qwen_3_8b_fp8mixed`, `flux2-vae` | 4 steps. Edit follows instructions. |
 | Generate / Edit - SDXL | `sd_xl_base_1.0` | Edit is image-to-image (denoise 0.6). |
 | Photoshop Bridge - inpaint transparent areas | `sd_xl_base_1.0` | Regenerates the erased (transparent) parts of a layer. |

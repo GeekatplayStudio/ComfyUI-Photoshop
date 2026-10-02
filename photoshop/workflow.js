@@ -108,6 +108,12 @@ function resolveTargets(api, choice = {}) {
     return { image: pick("image", "layer"), prompt: pick("prompt", "prompt"), found };
 }
 
+/* The model files an API workflow loads, as one string to compare workflows by. */
+function modelFiles(api) {
+    const files = Object.values(api).flatMap((node) => Object.values(node.inputs).filter((v) => typeof v === "string" && /\.(safetensors|sft|ckpt|gguf|pth?|bin)$/i.test(v)));
+    return [...new Set(files)].sort().join("|");
+}
+
 /* Width and height with the shape of `size` and about `area` pixels, in multiples of 16. */
 function fitSize(size, area) {
     const scale = Math.sqrt(area / (size.width * size.height));
@@ -180,4 +186,4 @@ function promptError(body) {
     return lines.join("\n");
 }
 
-module.exports = { parseWorkflow, checkApiWorkflow, findTargets, resolveTargets, fitSize, prepareWorkflow, resultImages, historyError, promptError };
+module.exports = { parseWorkflow, checkApiWorkflow, findTargets, resolveTargets, modelFiles, fitSize, prepareWorkflow, resultImages, historyError, promptError };

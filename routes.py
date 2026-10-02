@@ -72,7 +72,7 @@ async def builtin_workflows(request):
 
 @routes.get("/geekatplay/photoshop/state")
 async def panel_state(request):
-    """New Send to Photoshop results after `after`, plus queue and step progress for the panel's status line."""
+    """New Send to Photoshop results after `after`, queue and step progress for the panel's status line, and whether a /free request is still waiting to be applied."""
     after = request.rel_url.query.get("after")
     results = [r for r in RESULTS if r["seq"] > int(after)] if after is not None else []
     running, queued = PromptServer.instance.prompt_queue.get_current_queue_volatile()
@@ -89,4 +89,5 @@ async def panel_state(request):
         "running": [item[1] for item in running],
         "pending": [item[1] for item in sorted(queued, key=lambda item: item[0])],
         "progress": progress,
+        "freeing": bool(PromptServer.instance.prompt_queue.get_flags(reset=False)),
     })

@@ -7,7 +7,7 @@
  */
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { parseWorkflow, findTargets, resolveTargets, fitSize, prepareWorkflow, resultImages, historyError, promptError } = require("../photoshop/workflow.js");
+const { parseWorkflow, findTargets, resolveTargets, modelFiles, fitSize, prepareWorkflow, resultImages, historyError, promptError } = require("../photoshop/workflow.js");
 
 const API = {
     "1": { class_type: "GeekatplayPhotoshopImage", inputs: { image: "photoshop/old.png" } },
@@ -113,6 +113,14 @@ test("generation size follows the target shape and keeps the workflow's pixel co
 
     const plain = prepareWorkflow(PLAIN, { targets: resolveTargets(PLAIN), size: { width: 1000, height: 2000 } });
     assert.deepEqual([plain["6"].inputs.width, plain["6"].inputs.height], [720, 1456]);
+});
+
+test("modelFiles tells workflows with different models apart", () => {
+    const a = { "1": { class_type: "UNETLoader", inputs: { unet_name: "z.safetensors", weight_dtype: "default" } }, "2": { class_type: "VAELoader", inputs: { vae_name: "ae.safetensors" } } };
+    const sameModels = { "9": { class_type: "VAELoader", inputs: { vae_name: "ae.safetensors" } }, "3": { class_type: "UNETLoader", inputs: { unet_name: "z.safetensors" } }, "4": { class_type: "CLIPTextEncode", inputs: { text: "other prompt" } } };
+    assert.equal(modelFiles(a), "ae.safetensors|z.safetensors");
+    assert.equal(modelFiles(sameModels), modelFiles(a));
+    assert.notEqual(modelFiles(PLAIN), modelFiles(a));
 });
 
 test("resultImages prefers Send to Photoshop, then saved images, then previews", () => {
