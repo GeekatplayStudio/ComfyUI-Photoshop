@@ -233,6 +233,7 @@ default, about 5000 x 5000 pixels) needs a lower *Max size sent* or ComfyUI star
 | *32-bit documents are not supported* | Image > Mode > 16 Bits/Channel. |
 | A built-in workflow opened in ComfyUI warns about a missing image | Expected until you send a layer to it. |
 | The installer cannot install the panel | Open the Creative Cloud app, sign in, then double-click `build/GeekatplayComfyUIBridge.ccx`. |
+| The panel's icon is empty when the panel is collapsed in a dock (Windows) | Fixed in this version: run the installer again, then restart Photoshop once (Photoshop reads dock icons at startup). |
 | `ConnectionResetError: [WinError 10054]` in the ComfyUI console | Harmless Windows message when a client drops its connection; ComfyUI keeps running. |
 
 Good to know:
@@ -260,6 +261,11 @@ example_workflows/      built-in workflows, also shown in ComfyUI's Templates
 installer/, install.*   installers
 tests/                  tests
 ```
+
+Panel icons: the manifest names `icons/<name>.png`, while the files are
+`icons/<name>@1x.png` and `icons/<name>@2x.png`. On Windows, Photoshop does not find a
+1x file named without `@1x`, and the collapsed panel then shows an empty icon. Panel
+icons also need `"species": ["chrome"]` (the convention in Adobe's UXP samples).
 
 ```bash
 node --test "tests/*.test.js"
