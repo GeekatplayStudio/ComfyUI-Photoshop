@@ -47,8 +47,12 @@ By **Geekatplay Studio - Vladimir Chopine** - [www.geekatplay.com](https://www.g
 
 ## Install
 
-There are two parts: **nodes** for ComfyUI and a **panel** for Photoshop. The installer
-sets up both.
+There are two parts: **nodes** for ComfyUI and a **panel** for Photoshop. One installer
+sets up both. Before you start:
+
+- ComfyUI is installed (portable, desktop or git) - it does not need to be running.
+- Photoshop 2024 or newer is installed.
+- The Adobe **Creative Cloud** app is installed and signed in - it installs the panel.
 
 ### Windows and macOS - one click
 
@@ -59,18 +63,41 @@ sets up both.
    - **macOS** - double-click `install.command`
      (first time: right-click > **Open** > **Open**)
 3. Answer its question about the ComfyUI folder. It finds common locations by itself and
-   otherwise opens a folder picker.
-4. **Restart ComfyUI.** In Photoshop open
-   **Plugins > Geekatplay ComfyUI Bridge > ComfyUI Bridge**.
+   otherwise opens a folder picker. Pick the folder that contains `custom_nodes` (for the
+   portable version, the `ComfyUI` folder inside it).
+4. Wait for **Done**. Every step prints `OK`, or `!!` with what to do instead.
+5. **Restart ComfyUI.** In Photoshop open
+   **Plugins > Geekatplay ComfyUI Bridge > ComfyUI Bridge** (restart Photoshop if the menu
+   entry is not there yet).
 
 What the installer does:
 
 1. Copies the nodes to `ComfyUI/custom_nodes/ComfyUI-Geekatplay-Photoshop`
-   (skipped when you run it from inside `custom_nodes`).
+   (skipped when you run it from inside `custom_nodes`, for example after `git clone`).
 2. Packs the panel into `build/GeekatplayComfyUIBridge.ccx`.
 3. Installs the panel with Adobe's plugin installer, removing any earlier version first so
-   only one copy stays registered. If the installer is not available it shows the manual
-   steps below.
+   only one copy stays registered. If the plugin installer is not available it shows the
+   manual steps below.
+
+It does not download models or change ComfyUI's settings, and needs no extra Python
+packages.
+
+Options, for scripted installs:
+
+| Windows (`install.bat`) | macOS (`install.command`) | |
+| --- | --- | --- |
+| `install.bat -ComfyUI "D:\ComfyUI"` | `./install.command ~/ComfyUI` | Install into this ComfyUI folder without asking. |
+| `install.bat -SkipPhotoshop` | - | Only the ComfyUI nodes, for example on a server. |
+| `install.bat -NoPause` | - | Do not wait for a key at the end. |
+
+### Check that it works
+
+1. The dot at the top of the panel is **green** and shows the ComfyUI version.
+2. **Settings** says *13 built-in workflows come from the ComfyUI server*.
+3. On the **Workflows** tab pick **Photoshop Bridge - quick test**, select a layer and press
+   **Run**. An inverted copy of the layer appears as a new layer (no models needed).
+
+If the dot stays red or the count is missing, see [Troubleshooting](#troubleshooting).
 
 ### Manual install
 
@@ -82,6 +109,8 @@ cd ComfyUI/custom_nodes
 git clone https://github.com/GeekatplayStudio/ComfyUI-Photoshop
 ```
 
+ComfyUI-Manager can also install it from this repository's URL.
+
 **Panel** - either:
 
 - Run the installer; it builds `build/GeekatplayComfyUIBridge.ccx`. Double-click that file
@@ -91,8 +120,9 @@ git clone https://github.com/GeekatplayStudio/ComfyUI-Photoshop
 
 ### ComfyUI on another computer
 
-1. On the ComfyUI computer install the nodes (git clone above) and start ComfyUI with
-   `--listen`, for example `python main.py --listen 0.0.0.0`.
+1. On the ComfyUI computer install the nodes (git clone above, or the installer with
+   `-SkipPhotoshop`) and start ComfyUI with `--listen`, for example
+   `python main.py --listen 0.0.0.0`.
 2. On the Photoshop computer run the installer and press **Cancel** when it asks for the
    ComfyUI folder - only the panel is installed.
 3. In the panel open **Settings**, enter the address (for example
@@ -100,12 +130,16 @@ git clone https://github.com/GeekatplayStudio/ComfyUI-Photoshop
 
 ### Updating
 
-Download or `git pull` the new version, run the installer again and **restart ComfyUI**.
-The installer replaces the panel in place and Photoshop reloads it right away. Your
-server address, added workflows and their settings are kept in the panel's own storage,
-which starts empty after an update from 1.0 - add your workflows again with
-**Browse ComfyUI...** or **Add File...**.
-The panel tells you when ComfyUI is still running an older version of the nodes.
+1. Download the new version (or `git pull` in
+   `ComfyUI/custom_nodes/ComfyUI-Geekatplay-Photoshop`).
+2. Run the installer again. It replaces the panel in place and Photoshop reloads it right
+   away; if a panel was open, close and reopen it.
+3. **Restart ComfyUI**, then press **Refresh** in the panel.
+
+The panel tells you when ComfyUI is still running an older version of the nodes. Your
+server address, added workflows and their settings are kept across updates (after the
+update from 1.0 to 1.1 the panel starts with empty settings once - add your workflows
+again with **Browse ComfyUI...** or **Add File...**).
 
 ## First run
 

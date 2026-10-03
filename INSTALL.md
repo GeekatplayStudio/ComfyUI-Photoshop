@@ -1,5 +1,7 @@
 # Install - 3 steps
 
+You need ComfyUI, Photoshop 2024 or newer, and the Adobe **Creative Cloud** app signed in.
+
 **1. Download and unzip** this folder anywhere (or `git clone` it into `ComfyUI/custom_nodes`).
 
 **2. Double-click the installer**
@@ -7,12 +9,18 @@
 - Windows: `install.bat`
 - Mac: `install.command`
 
-Answer its questions. It puts the nodes into your ComfyUI and installs the
-**ComfyUI Bridge** panel into Photoshop.
+Answer its question about your ComfyUI folder (the one that contains `custom_nodes`).
+It puts the nodes into your ComfyUI and installs the **ComfyUI Bridge** panel into
+Photoshop. Wait for **Done**.
 
-**3. Restart ComfyUI and Photoshop.** In Photoshop open **Plugins > Geekatplay ComfyUI Bridge > ComfyUI Bridge**.
+**3. Restart ComfyUI.** In Photoshop open **Plugins > Geekatplay ComfyUI Bridge > ComfyUI Bridge**
+(restart Photoshop if it is not in the menu yet).
 
-The dot at the top of the panel turns green when it can reach ComfyUI.
+The dot at the top of the panel turns green when it can reach ComfyUI, and **Settings**
+shows *13 built-in workflows*.
+
+**Updating:** download the new version, run the installer again, restart ComfyUI and press
+**Refresh** in the panel.
 
 ## Try it
 
@@ -35,6 +43,7 @@ No models yet? Pick **Photoshop Bridge - quick test** and press **Run**: it inve
 | Mac double-click opens a text editor | In Terminal run `bash install.command` from this folder. |
 | Installer can't install the panel | Open the Creative Cloud app, sign in, then double-click `build/GeekatplayComfyUIBridge.ccx`. |
 | Panel says it cannot reach ComfyUI | Start ComfyUI. If it runs on another computer, enter its address in **Settings**. |
-| Panel says the nodes are not installed | Restart ComfyUI. |
+| Panel says the nodes are not installed or not loaded | Restart ComfyUI. |
+| A workflow, model or template you just added does not show | Press **Refresh** at the top of the panel. |
 
 More in the [README](README.md).
