@@ -20,7 +20,7 @@ const PARAM_TYPES = ["INT", "FLOAT", "BOOLEAN", "STRING", "COMBO"];
 const PARAM_KEYS = new Set([
     "seed", "noise_seed", "steps", "cfg", "guidance", "denoise", "sampler_name", "scheduler", "shift", "width", "height",
     "megapixels", "resolution", "aspect_ratio", "strength", "strength_model", "strength_clip", "lora_name", "ckpt_name",
-    "unet_name", "clip_name", "vae_name", "text", "prompt", "negative_prompt",
+    "unet_name", "clip_name", "vae_name", "text", "prompt", "negative_prompt", "multiplier", "scale_by", "longer_size",
 ]);
 const MODEL_FILE = /\.(safetensors|sft|ckpt|gguf|pth?|bin)$/i;
 // Preview nodes that show the input next to the result; they do not name an image's role.
@@ -184,9 +184,21 @@ function missingModels(ui, defs) {
     return [...missing.values()];
 }
 
-/* The widget spec of an input from a node definition: { type, options, min, max, step }, or null when it is not a plain widget. */
-function inputSpec(def, key) {
-    const spec = def?.input?.required?.[key] ?? def?.input?.optional?.[key];
+/*
+ * The widget spec of an input from a node definition: { type, options, min, max, step }, or null
+ * when it is not a plain widget. A dotted key such as "resize_type.multiplier" is an input of the
+ * option chosen in a dynamic combo; `inputs` holds the node's values that say which one.
+ */
+function inputSpec(def, key, inputs) {
+    const [first, ...rest] = key.split(".");
+    let spec = def?.input?.required?.[first] ?? def?.input?.optional?.[first];
+    let path = first;
+    for (const part of rest) {
+        if (spec?.[0] !== "COMFY_DYNAMICCOMBO_V3") return null;
+        const chosen = spec[1].options.find((o) => o.key === inputs[path]);
+        spec = chosen?.inputs?.required?.[part] ?? chosen?.inputs?.optional?.[part];
+        path += `.${part}`;
+    }
     if (!spec) return null;
     const [socketType, opts = {}] = spec;
     const type = Array.isArray(socketType) ? "COMBO" : opts.widgetType ?? socketType;
@@ -199,9 +211,9 @@ function inputSpec(def, key) {
 }
 
 /*
- * The settings of an API workflow the panel lets the user edit: the inputs the workflow author
- * exposed (promoted subgraph widgets and titled primitives, from convert.js) when there are
- * any, otherwise the usual sampling, size and model inputs; with `all`, every plain widget.
+ * The settings of an API workflow the panel lets the user edit: first the inputs the workflow
+ * author exposed (promoted subgraph widgets and titled primitives, from convert.js), then the
+ * usual sampling, size, strength and model inputs; with `all`, every plain widget.
  * Inputs that take the layer or the prompt are left out. Each entry is
  * { id, key, label, group, type, options?, min?, max?, step?, value }.
  */
@@ -212,17 +224,16 @@ function workflowParams(api, defs, exposed = [], targets = { image: [], prompt: 
         const node = api[id];
         const value = node?.inputs[key];
         if (value === undefined || isLink(value) || taken.has(`${id}/${key}`)) return;
-        const spec = inputSpec(defs[node.class_type], key);
+        const spec = inputSpec(defs[node.class_type], key, node.inputs);
         if (!spec) return;
         taken.add(`${id}/${key}`);
         params.push({ id, key, label: text, group, ...spec, value });
     };
     exposed.forEach(add);
-    if (!params.length || all) {
-        for (const [id, node] of Object.entries(api)) {
-            for (const key of Object.keys(node.inputs)) {
-                if (all || (PARAM_KEYS.has(key) && (!/^(width|height)$/.test(key) || /Latent|Size|Resolution/i.test(node.class_type)))) add({ id, key, label: key, group: label(id, node) });
-            }
+    for (const [id, node] of Object.entries(api)) {
+        for (const key of Object.keys(node.inputs)) {
+            const name = key.split(".").pop();
+            if (all || (PARAM_KEYS.has(name) && (!/^(width|height)$/.test(name) || /Latent|Size|Resolution/i.test(node.class_type)))) add({ id, key, label: key, group: label(id, node) });
         }
     }
     return params;

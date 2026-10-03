@@ -131,9 +131,12 @@ Pick a workflow, type a prompt, press **Run**. ComfyUI runs it without the brows
 - **Inputs** lists every image the workflow takes and where it comes from - see
   [Workflows with several images](#workflows-with-several-images) - and which node
   receives the prompt.
-- **Settings** shows the workflow's own settings (steps, seed, model files, strength...)
-  as fields you can change; the values are kept per workflow. **All** lists every widget,
-  **Reset** returns to the values saved in the workflow.
+- **Settings** shows the workflow's own settings (steps, seed, model files, strength,
+  upscale factor...) as fields you can change; the values are kept per workflow. **All**
+  lists every widget, **Reset** returns to the values saved in the workflow.
+- **Refresh** (next to the connection status) reads everything from ComfyUI again: the
+  model lists, the built-in workflows, the template list and the selected workflow. Press
+  it after adding models, editing a workflow in ComfyUI or restarting ComfyUI.
 - **New seed each run** gives every `seed` / `noise_seed` a new value.
 - When you run a workflow that loads other models than the previous one, the panel first
   asks ComfyUI to unload its models and clear its cache, so the new models start with
@@ -217,10 +220,12 @@ once.
 
 ### Settings the panel shows
 
-The panel reads the settings the workflow author put forward: widgets promoted onto a
-subgraph (what the ComfyUI templates do) and titled primitive nodes, grouped by subgraph.
-A workflow without any gets the usual sampling, size and model inputs instead. Only
-plain values are editable; inputs wired to other nodes are not shown.
+The panel first shows the settings the workflow author put forward - widgets promoted onto
+a subgraph (what the ComfyUI templates do) and titled primitive nodes - then the usual
+sampling, size, strength, upscale and model inputs, grouped by node. **All** adds every
+other value. Options that belong to a mode (for example the multiplier of *scale by
+multiplier*) are shown for the mode saved in the workflow; switch the mode itself in
+ComfyUI. Inputs wired to other nodes are not shown.
 
 ### How the panel finds the right nodes
 
@@ -280,7 +285,8 @@ default, about 5000 x 5000 pixels) needs a lower *Max size sent* or ComfyUI star
 | *Value not in list* naming a model file | That model is not installed. Open the workflow in ComfyUI and choose a file you have. |
 | *several nodes that could receive the prompt* | Pick the node under **Inputs** on the Workflows tab. |
 | *Select at least N layers* | The workflow has N image slots. Select that many layers, or give each slot a source under **Inputs**. |
-| *Missing models: ...* | Press **Copy download links**, download the files into the named model folders and press **Connect**. |
+| *Missing models: ...* | Press **Copy download links**, download the files into the named model folders and press **Refresh**. |
+| A model, template or workflow you just added does not show, or a note says a model is missing although the workflow runs | Press **Refresh** in the panel header. |
 | *... is not installed on this ComfyUI server* | Your workflow uses a custom node this server does not have. |
 | *The layer is larger than the ComfyUI upload limit* | Lower *Max size sent*, or start ComfyUI with `--max-upload-size`. |
 | *32-bit documents are not supported* | Image > Mode > 16 Bits/Channel. |

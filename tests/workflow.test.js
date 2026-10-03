@@ -156,7 +156,7 @@ test("modelFiles tells workflows with different models apart", () => {
     assert.notEqual(modelFiles(PLAIN), modelFiles(a));
 });
 
-test("workflowParams lists the exposed inputs, else the usual sampling and model inputs", () => {
+test("workflowParams lists the exposed inputs, then the usual sampling and model inputs", () => {
     const defs = {
         KSampler: { input: { required: { model: ["MODEL"], seed: ["INT", { default: 0, min: 0 }], steps: ["INT", { min: 1, max: 100 }], sampler_name: [["euler", "dpmpp_2m"]] } } },
         CLIPTextEncode: { input: { required: { text: ["STRING", { multiline: true }] } } },
@@ -171,8 +171,19 @@ test("workflowParams lists the exposed inputs, else the usual sampling and model
     assert.equal(usual[1].multiline, true);
 
     const exposed = [{ id: "7", key: "seed", label: "Seed", group: "Main" }, { id: "7", key: "model", label: "linked", group: "Main" }, { id: "2", key: "text", label: "the prompt", group: "Main" }];
-    assert.deepEqual(workflowParams(PLAIN, defs, exposed, targets).map((p) => p.label), ["Seed"]);
-    assert.deepEqual(workflowParams(PLAIN, defs, exposed, targets, true).map((p) => p.label), ["Seed", "ckpt_name", "text", "width", "height", "batch_size"], "'all' adds every plain widget after the exposed ones");
+    assert.deepEqual(workflowParams(PLAIN, defs, exposed, targets).map((p) => p.label), ["Seed", "ckpt_name", "text", "width", "height"], "exposed first, linked and prompt inputs left out");
+    assert.deepEqual(workflowParams(PLAIN, defs, exposed, targets, true).map((p) => p.label), ["Seed", "ckpt_name", "text", "width", "height", "batch_size"], "'all' adds every plain widget");
+
+    const resize = {
+        ResizeImageMaskNode: { input: { required: { resize_type: ["COMFY_DYNAMICCOMBO_V3", { options: [
+            { key: "scale by multiplier", inputs: { required: { multiplier: ["FLOAT", { min: 0.01, max: 8 }] } } },
+            { key: "scale total pixels", inputs: { required: { megapixels: ["FLOAT", {}] } } },
+        ] }] } } },
+    };
+    const api = { "1": { class_type: "ResizeImageMaskNode", inputs: { resize_type: "scale by multiplier", "resize_type.multiplier": 4 } } };
+    assert.deepEqual(workflowParams(api, resize, [], { image: [], prompt: [] }), [
+        { id: "1", key: "resize_type.multiplier", label: "resize_type.multiplier", group: "ResizeImageMaskNode (#1)", type: "FLOAT", min: 0.01, max: 8, value: 4 },
+    ], "an option of the chosen dynamic combo entry is a setting; the combo itself is not");
 });
 
 test("missingModels compares the models a workflow lists with the server's loader options", () => {

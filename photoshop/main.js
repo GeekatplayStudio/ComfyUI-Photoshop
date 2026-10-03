@@ -66,26 +66,41 @@ function setConnection(ok, text) {
     $("status-text").textContent = text;
 }
 
+/* Connects and reads the server's node definitions, built-in workflows and, when the browser is open, its templates. */
 async function connect() {
     comfy.setServer(settings.server);
-    catalog = null;
     try {
         const stats = await comfy.systemStats();
         lastSeq = (await comfy.state()).seq;
         try {
             builtin = Object.entries(await comfy.builtinWorkflows()).map(([name, workflow]) => ({ id: `builtin:${name}`, name, workflow }));
             outdated = false;
-        } catch {
-            // A ComfyUI started before the nodes were updated has the older routes only.
+        } catch (err) {
+            // A ComfyUI started before the nodes were updated has the older routes only. Any other
+            // error is a dropped connection: keep the list and connect again.
+            if (!err.notLoaded) throw err;
             builtin = [];
             outdated = true;
         }
+        catalog = $("browse-panel").className === "browse-panel" ? await loadCatalog() : null;
+        if (catalog) renderCatalog();
         renderWorkflows();
         setConnection(true, `ComfyUI ${stats.system.comfyui_version} at ${settings.server}`);
     } catch (err) {
         lastSeq = null;
         setConnection(false, err.message);
     }
+}
+
+/* Reads everything again, for models, templates or workflows changed while the panel was open. */
+async function refresh() {
+    showMessage("Refreshing...");
+    await connect();
+    if (lastSeq === null) throw new Error($("status-text").textContent);
+    const entry = selectedWorkflow();
+    if (entry?.kind && (await store.refreshWorkflow(entry))) persist();
+    await showWorkflow();
+    showMessage("Refreshed from ComfyUI.");
 }
 
 function placeAll(images, target, label) {
@@ -553,6 +568,7 @@ async function loadCatalog() {
 }
 
 function renderCatalog() {
+    if (!catalog) return;
     const list = $("browse-list");
     list.innerHTML = "";
     const words = $("browse-search").value.toLowerCase().split(/\s+/).filter(Boolean);
@@ -615,6 +631,7 @@ async function init() {
     action("copy-models", copyModelLinks);
     action("add-workflow", addWorkflow);
     action("browse", toggleBrowse);
+    action("refresh", refresh);
     action("reset-params", async () => resetParams());
     action("connect", async () => {
         settings.server = $("server").value.trim() || "http://127.0.0.1:8188";

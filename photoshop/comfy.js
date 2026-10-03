@@ -39,7 +39,9 @@ async function request(path, init = {}) {
     }
     // Without the nodes, GET gives 404 and POST falls through to the static handler, which gives 405.
     if ((res.status === 404 || res.status === 405) && path.startsWith("/geekatplay/")) {
-        throw new Error("ComfyUI is running but the Geekatplay Photoshop Bridge nodes are not loaded. Install them and restart ComfyUI.");
+        const err = new Error("ComfyUI is running but the Geekatplay Photoshop Bridge nodes are not loaded. Install them and restart ComfyUI.");
+        err.notLoaded = true;
+        throw err;
     }
     if (res.status === 413) {
         throw new Error("The layer is larger than the ComfyUI upload limit. Lower 'Max size sent' in Settings or start ComfyUI with --max-upload-size.");
