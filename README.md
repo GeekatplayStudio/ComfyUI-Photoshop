@@ -167,6 +167,8 @@ this pack's folder, so you can open them and change models or settings. The file
 | Remove Background - Qwen Image 2.1 | same as Qwen Image 2.1 | Returns the subject on a transparent background. Leave the prompt empty. |
 | Generate / Edit - Flux.2 Klein 9B | `flux-2-klein-9b-fp8`, `qwen_3_8b_fp8mixed`, `flux2-vae` | 4 steps. Edit follows instructions. |
 | Generate / Edit - SDXL | `sd_xl_base_1.0` | Edit is image-to-image (denoise 0.6). |
+| Depth Map - Marigold V2 | `qwen_image_edit_2509_int8_convrot`, `marigold_v2_depth_log_stage2` (LoRA), `marigold_v2_depth_log_stage2_vae`, `marigold_v2_depth_conditioning` (embeddings) | Turns the layer into a depth map. No prompt. |
+| Upscale - SeedVR2 7B | `seedvr2_7b_int8_convrot`, `seedvr2_ema_vae_fp16` | Upscales the layer 4x and restores detail. Keeps transparency. No prompt. The result is fitted back over the layer, so use it on a larger canvas or copy it to a new document for the full size. |
 | Photoshop Bridge - inpaint transparent areas | `sd_xl_base_1.0` | Regenerates the erased (transparent) parts of a layer. |
 | Photoshop Bridge - quick test | none | Inverts the layer. |
 

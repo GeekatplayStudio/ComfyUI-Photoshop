@@ -23,6 +23,8 @@ const PARAM_KEYS = new Set([
     "unet_name", "clip_name", "vae_name", "text", "prompt", "negative_prompt",
 ]);
 const MODEL_FILE = /\.(safetensors|sft|ckpt|gguf|pth?|bin)$/i;
+// Preview nodes that show the input next to the result; they do not name an image's role.
+const PREVIEWS = new Set(["ImageCompare", "PreviewImage"]);
 
 /* Parses a registered workflow file, either format. */
 function parseWorkflow(text) {
@@ -74,6 +76,7 @@ function textKey(node) {
 /* The name of the first input the image output of node `id` feeds, e.g. "image_1" for a "images.image_1" key. */
 function consumerKey(api, id) {
     for (const node of Object.values(api)) {
+        if (PREVIEWS.has(node.class_type)) continue;
         for (const [key, value] of Object.entries(node.inputs)) {
             if (isLink(value) && value[0] === id && value[1] === 0) return key.split(".").pop();
         }
@@ -91,7 +94,8 @@ function imageRoles(ui) {
     const roles = {};
     for (const node of nodes.values()) {
         if (!/LoadImage/i.test(node.type)) continue;
-        const inputs = (node.outputs?.[0]?.links ?? []).map((id) => links.get(id)).map((link) => link && nodes.get(link.target_id)?.inputs?.[link.target_slot]).filter(Boolean);
+        const targets = (node.outputs?.[0]?.links ?? []).map((id) => links.get(id)).filter((link) => link && nodes.has(link.target_id) && !PREVIEWS.has(nodes.get(link.target_id).type));
+        const inputs = targets.map((link) => nodes.get(link.target_id).inputs?.[link.target_slot]).filter(Boolean);
         const input = inputs.find((i) => i.label) ?? inputs[0];
         if (input) roles[String(node.id)] = input.label ?? input.name;
     }
@@ -170,7 +174,8 @@ function missingModels(ui, defs) {
     const graphs = [ui, ...(ui.definitions?.subgraphs ?? [])];
     for (const node of graphs.flatMap((g) => g.nodes ?? [])) {
         const def = defs[node.type];
-        const options = Object.values({ ...def?.input?.required, ...def?.input?.optional }).flatMap(([type]) => (Array.isArray(type) ? type : []));
+        // Combos are saved either as a list of options or as ["COMBO", { options }].
+        const options = Object.values({ ...def?.input?.required, ...def?.input?.optional }).flatMap(([type, opts]) => (Array.isArray(type) ? type : type === "COMBO" ? opts?.options ?? [] : []));
         for (const model of node.properties?.models ?? []) {
             const have = options.some((o) => o === model.name || o.replace(/\\/g, "/").endsWith(`/${model.name}`));
             if (!have && !missing.has(model.name)) missing.set(model.name, model);

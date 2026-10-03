@@ -89,6 +89,12 @@ test("every Load Image something reads is a slot with its own source, in role or
         links: [[1, 4, 0, 20, 0, "IMAGE"], [2, 4, 0, 21, 0, "IMAGE"], [3, 8, 0, 20, 1, "IMAGE"]],
     });
     assert.deepEqual(roles, { "4": "reference_image1", "8": "reference_image2" }, "a labelled input names the role");
+
+    const compared = imageRoles({
+        nodes: [{ id: 1, type: "LoadImage", outputs: [{ links: [1, 2] }] }, { id: 2, type: "ImageCompare", inputs: [{ name: "image_a" }] }, { id: 3, type: "VAEEncode", inputs: [{ name: "pixels" }] }],
+        links: [[1, 1, 0, 2, 0, "IMAGE"], [2, 1, 0, 3, 0, "IMAGE"]],
+    });
+    assert.deepEqual(compared, { "1": "pixels" }, "a before/after preview does not name the role");
     assert.deepEqual(resolveTargets(two, {}, roles).image.map((s) => s.role), ["reference_image1", "reference_image2"]);
 });
 
@@ -170,12 +176,18 @@ test("workflowParams lists the exposed inputs, else the usual sampling and model
 });
 
 test("missingModels compares the models a workflow lists with the server's loader options", () => {
-    const defs = { CheckpointLoaderSimple: { input: { required: { ckpt_name: [["sdxl/sd_xl_base_1.0.safetensors"]] } } } };
+    const defs = {
+        CheckpointLoaderSimple: { input: { required: { ckpt_name: [["sdxl/sd_xl_base_1.0.safetensors"]] } } },
+        ConditioningLoader: { input: { required: { conditioning_name: ["COMBO", { options: ["cond.safetensors"] }] } } },
+    };
     const ui = {
-        nodes: [{ id: 1, type: "CheckpointLoaderSimple", properties: { models: [{ name: "sd_xl_base_1.0.safetensors", url: "https://x/a", directory: "checkpoints" }] } }],
+        nodes: [
+            { id: 1, type: "CheckpointLoaderSimple", properties: { models: [{ name: "sd_xl_base_1.0.safetensors", url: "https://x/a", directory: "checkpoints" }] } },
+            { id: 3, type: "ConditioningLoader", properties: { models: [{ name: "cond.safetensors", url: "https://x/c", directory: "embeddings" }] } },
+        ],
         definitions: { subgraphs: [{ id: "s", nodes: [{ id: 2, type: "UNETLoader", properties: { models: [{ name: "flux.safetensors", url: "https://x/b", directory: "diffusion_models" }, { name: "flux.safetensors", url: "https://x/b" }] } }] }] },
     };
-    assert.deepEqual(missingModels(ui, defs).map((m) => m.name), ["flux.safetensors"], "a model in a subfolder counts; subgraph nodes are checked; duplicates listed once");
+    assert.deepEqual(missingModels(ui, defs).map((m) => m.name), ["flux.safetensors"], "a model in a subfolder or a new-style combo counts; subgraph nodes are checked; duplicates listed once");
 });
 
 test("resultImages prefers Send to Photoshop, then saved images, then previews", () => {
