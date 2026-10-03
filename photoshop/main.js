@@ -405,6 +405,11 @@ function resetParams() {
     renderParams(shown.params);
 }
 
+/* Built-in workflows come from the server and cannot be removed. */
+function updateRemoveButton() {
+    $("remove-workflow").className = settings.workflows.some((w) => w.id === $("workflow-select").value) ? "" : "hidden";
+}
+
 /* Fills Inputs and Settings for the selected workflow. */
 async function showWorkflow() {
     const entry = selectedWorkflow();
@@ -467,13 +472,20 @@ function moveWorkflow(index, offset) {
     renderWorkflows();
 }
 
+/* Takes a workflow off the list together with its saved inputs and settings. Files and ComfyUI templates are not touched. */
 function removeWorkflow(index) {
     const [removed] = settings.workflows.splice(index, 1);
     delete settings.targets[removed.id];
     delete settings.params[removed.id];
     persist();
     renderWorkflows();
+    if (catalog && $("browse-panel").className === "browse-panel") renderCatalog();
     showMessage(`Removed ${removed.name}.`);
+}
+
+function removeSelected() {
+    const index = settings.workflows.findIndex((w) => w.id === $("workflow-select").value);
+    if (index !== -1) removeWorkflow(index);
 }
 
 function renderWorkflows() {
@@ -493,13 +505,14 @@ function renderWorkflows() {
         row.appendChild(name);
         row.appendChild(smallButton("↑", i > 0 ? () => moveWorkflow(i, -1) : null));
         row.appendChild(smallButton("↓", i < settings.workflows.length - 1 ? () => moveWorkflow(i, 1) : null));
-        row.appendChild(smallButton("✕", () => removeWorkflow(i)));
+        row.appendChild(smallButton("Remove", () => removeWorkflow(i)));
         list.appendChild(row);
     });
     if (!settings.workflows.length) list.textContent = "No workflows registered yet.";
 
     const all = [...builtin, ...settings.workflows];
     fillSelect($("workflow-select"), all.map((w) => [w.id, w.name]), $("workflow-select").value);
+    updateRemoveButton();
     $("builtin-count").textContent = builtin.length ? `${builtin.length} built-in workflows come from the ComfyUI server.` : "";
     $("workflows-note").textContent = outdated ? "Restart ComfyUI to load the built-in workflows: it is running an older version of the Photoshop Bridge nodes." : "";
     $("workflows-note").className = outdated ? "error" : "hidden";
@@ -511,6 +524,7 @@ function registerWorkflow(entry) {
     persist();
     renderWorkflows();
     $("workflow-select").value = entry.id;
+    updateRemoveButton();
     showWorkflow().catch(report);
     showMessage(`Registered ${entry.name}.`);
 }
@@ -550,8 +564,8 @@ function renderCatalog() {
         const inputs = item.images === null ? "" : item.images ? ` · ${item.images} image input${item.images > 1 ? "s" : ""}` : " · prompt only";
         text.appendChild(element("sp-detail", "", item.detail + inputs));
         row.appendChild(text);
-        const registered = settings.workflows.some((w) => w.kind === item.kind && w.path === item.path);
-        row.appendChild(smallButton(registered ? "Added" : "Add", registered ? null : () => addCatalogItem(item).catch(report)));
+        const index = settings.workflows.findIndex((w) => w.kind === item.kind && w.path === item.path);
+        row.appendChild(index === -1 ? smallButton("Add", () => addCatalogItem(item).catch(report)) : smallButton("Remove", () => removeWorkflow(index)));
         list.appendChild(row);
     }
     if (!shownItems.length) list.appendChild(element("sp-body", "hint", "Nothing matches.")).setAttribute("size", "XS");
@@ -626,7 +640,11 @@ async function init() {
         persist();
         showWorkflow().catch(report);
     });
-    $("workflow-select").addEventListener("change", () => showWorkflow().catch(report));
+    $("workflow-select").addEventListener("change", () => {
+        updateRemoveButton();
+        showWorkflow().catch(report);
+    });
+    action("remove-workflow", async () => removeSelected());
     $("browse-search").addEventListener("input", () => catalog && renderCatalog());
 
     poll();

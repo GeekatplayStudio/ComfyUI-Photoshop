@@ -182,9 +182,15 @@ Two ways to add workflows, both under **Settings**:
 - **Add File...** picks a workflow file - a regular save (**Workflow > Save**) or an API
   export (**Workflow > Export (API)**).
 
-Rename an entry in place, reorder with the arrows, remove with the cross. The source is
+Rename an entry in place and reorder it with the arrows under **Settings**. The source is
 read again before every run, so edits made in ComfyUI are picked up; if it is gone, the
 copy saved at registration is used.
+
+To delete an added workflow, press **Remove** next to it - on the Workflows tab beside the
+workflow picker, in the **Settings** list, or in **Browse ComfyUI...**. This takes it off
+the panel's list together with its saved inputs and settings; the workflow file and
+ComfyUI's templates are not deleted, so you can add it again any time. Built-in workflows
+cannot be removed.
 
 ### Workflows with several images
 

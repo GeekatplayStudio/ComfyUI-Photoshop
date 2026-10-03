@@ -32,7 +32,10 @@
     <section id="page-registered" class="page hidden">
         <sp-body size="S" id="workflows-note" class="hidden"></sp-body>
         <sp-label>Workflow</sp-label>
-        <select id="workflow-select"></select>
+        <div class="row">
+            <select id="workflow-select" class="grow"></select>
+            <sp-action-button id="remove-workflow" class="hidden" quiet>Remove</sp-action-button>
+        </div>
         <sp-body size="XS" id="workflow-info" class="error hidden"></sp-body>
         <sp-action-button id="copy-models" class="hidden" quiet>Copy download links</sp-action-button>
         <sp-label>Prompt (empty = the prompt saved in the workflow)</sp-label>

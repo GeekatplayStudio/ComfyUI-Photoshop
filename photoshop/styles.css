@@ -96,7 +96,8 @@ sp-textarea {
     width: 100%;
 }
 
-.row sp-textfield.grow {
+.row sp-textfield.grow,
+.row select.grow {
     width: auto;
 }
 
