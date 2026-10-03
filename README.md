@@ -4,23 +4,30 @@
 
 By **Geekatplay Studio - Vladimir Chopine** - [www.geekatplay.com](https://www.geekatplay.com)
 
-<img src="docs/panel.png" alt="ComfyUI Bridge panel in Photoshop" width="327" align="right">
+![Geekatplay ComfyUI Bridge](distribution/assets/screenshot-1.png)
 
-- **Generate** - type a prompt, get a new layer. Built-in workflows for **Z-Image Turbo,
-  Qwen Image, Flux.2 Klein and SDXL** are ready right after installation.
-- **Remove backgrounds** - one click returns the subject on a transparent layer.
-- **Edit** - send a selection or a layer with a prompt; the result comes back as a new
-  layer exactly over the area you sent.
+- **Generate** - type a prompt, get a new layer in the shape of the selection or canvas.
+  Built-in workflows for **Z-Image Turbo, Qwen Image, Flux.2 Klein and SDXL** are ready
+  right after installation.
+- **Edit** - send a selection or a layer with an instruction; the result comes back as a
+  new layer exactly over the area you sent.
+- **One click tools** - remove the background, make a depth map, upscale 4x.
+- **Any workflow** - browse ComfyUI's own templates and your saved workflows and add them
+  with one click, or add a workflow file. The panel finds where the layer and the prompt
+  go, and gives every image input its own source: the selection, the 1st, 2nd... selected
+  layer, the whole canvas or a named layer.
+- **Every setting at hand** - model files, steps, seed, strength, size and upscale options
+  as fields in the panel, kept per workflow. Missing models come with their download links.
 - **Work live** - push a layer into the workflow open in ComfyUI, tweak and re-run there,
   and every result lands in Photoshop.
-- **Your own workflows** - register any saved workflow (regular save or API export). The
-  panel finds the nodes for the layer and the prompt and lets you choose when it cannot tell.
 - **Local or remote** ComfyUI, queue position and step progress in the panel, one-click
-  installers for Windows and macOS.
-- Results are placed as **smart objects**; 8 and 16 bits/channel documents; layer
-  transparency arrives in ComfyUI as a mask.
+  installers for Windows and macOS. Results are placed as **smart objects**; 8 and 16
+  bits/channel documents; layer transparency arrives in ComfyUI as a mask.
 
-<br clear="right">
+| | |
+| --- | --- |
+| ![Edit](distribution/assets/screenshot-2.png) | ![Any model](distribution/assets/screenshot-3.png) |
+| ![Several images](distribution/assets/screenshot-4.png) | ![Every setting](distribution/assets/screenshot-5.png) |
 
 ## Contents
 
@@ -34,6 +41,7 @@ By **Geekatplay Studio - Vladimir Chopine** - [www.geekatplay.com](https://www.g
 - [Settings](#settings)
 - [Troubleshooting](#troubleshooting)
 - [Uninstall](#uninstall)
+- [Privacy](#privacy)
 - [Development](#development)
 
 ## Requirements
@@ -75,8 +83,8 @@ What the installer does:
 1. Copies the nodes to `ComfyUI/custom_nodes/ComfyUI-Geekatplay-Photoshop`
    (skipped when you run it from inside `custom_nodes`, for example after `git clone`).
 2. Packs the panel into `build/GeekatplayComfyUIBridge.ccx`.
-3. Installs the panel with Adobe's plugin installer, removing any earlier version first so
-   only one copy stays registered. If the plugin installer is not available it shows the
+3. Installs the panel with Adobe's plugin installer, replacing any earlier version and
+   keeping the panel's settings. If the plugin installer is not available it shows the
    manual steps below.
 
 It does not download models or change ComfyUI's settings, and needs no extra Python
@@ -136,10 +144,8 @@ ComfyUI-Manager can also install it from this repository's URL.
    away; if a panel was open, close and reopen it.
 3. **Restart ComfyUI**, then press **Refresh** in the panel.
 
-The panel tells you when ComfyUI is still running an older version of the nodes. Your
-server address, added workflows and their settings are kept across updates (after the
-update from 1.0 to 1.1 the panel starts with empty settings once - add your workflows
-again with **Browse ComfyUI...** or **Add File...**).
+The panel tells you when ComfyUI is still running an older version of the nodes. The
+installer keeps your server address, added workflows and their settings.
 
 ## First run
 
@@ -327,14 +333,13 @@ default, about 5000 x 5000 pixels) needs a lower *Max size sent* or ComfyUI star
 | A built-in workflow opened in ComfyUI warns about a missing image | Expected until you send a layer to it. |
 | The installer cannot install the panel | Open the Creative Cloud app, sign in, then double-click `build/GeekatplayComfyUIBridge.ccx`. |
 | *no such file or directory* when a result is placed, right after updating the panel | The open panel is the old copy. Close the panel and reopen it from **Plugins**, or restart Photoshop. |
-| The panel's icon is empty when the panel is collapsed in a dock (Windows) | Fixed in this version: run the installer again, then restart Photoshop once (Photoshop reads dock icons at startup). |
+| The panel's icon is empty or old when the panel is collapsed in a dock | Restart Photoshop once after installing - it reads dock icons at startup. |
 | `ConnectionResetError: [WinError 10054]` in the ComfyUI console | Harmless Windows message when a client drops its connection; ComfyUI keeps running. |
 
 Good to know:
 
 - Scrolling the mouse wheel over a dropdown changes its value (a Photoshop panel
   behaviour); scroll with the cursor over a label or empty space instead.
-
 - A selection is sent as its bounding rectangle. Transparent pixels inside it are sent
   as black.
 - Image-to-image edits (Z-Image, SDXL) keep the composition and change the look; use the
@@ -348,6 +353,12 @@ Good to know:
   - macOS: `"/Library/Application Support/Adobe/Adobe Desktop Common/RemoteComponents/UPI/UnifiedPluginInstallerAgent/UnifiedPluginInstallerAgent.app/Contents/MacOS/UnifiedPluginInstallerAgent" --remove "Geekatplay ComfyUI Bridge"`
 - **Nodes** - delete the pack's folder from `ComfyUI/custom_nodes`.
 
+## Privacy
+
+The panel talks only to the ComfyUI address you enter, stores its settings in Photoshop's
+plugin storage and sends nothing anywhere else - no accounts, analytics or telemetry. See
+[PRIVACY.md](PRIVACY.md).
+
 ## Development
 
 ```
@@ -356,6 +367,7 @@ web/                    ComfyUI frontend extension (switches the Photoshop nodes
 photoshop/              the Photoshop panel (UXP plugin)
 example_workflows/      built-in workflows, also shown in ComfyUI's Templates
 installer/, install.*   installers
+distribution/           Adobe Marketplace listing: text, icons, screenshots, sources
 tests/                  tests
 ```
 
@@ -367,7 +379,11 @@ icons also need `"species": ["chrome"]` (the convention in Adobe's UXP samples).
 ```bash
 node --test "tests/*.test.js"
 python tests/bridge_e2e.py --base http://127.0.0.1:8188
+python distribution/check_listing.py
 ```
+
+Publishing to Adobe's Creative Cloud Marketplace is described step by step in
+[distribution/README.md](distribution/README.md).
 
 ## License
 

@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2b1366"/>
+      <stop offset="0.55" stop-color="#16124a"/>
+      <stop offset="1" stop-color="#0a0f2e"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.72" cy="0.28" r="0.6">
+      <stop offset="0" stop-color="#7c3aed" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#7c3aed" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="arc" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#22d3ee"/>
+      <stop offset="0.5" stop-color="#a78bfa"/>
+      <stop offset="1" stop-color="#f472b6"/>
+    </linearGradient>
+    <linearGradient id="node" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f472b6"/>
+      <stop offset="1" stop-color="#fb923c"/>
+    </linearGradient>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="5"/>
+    </filter>
+  </defs>
+  <rect width="192" height="192" rx="42" fill="url(#bg)"/>
+  <rect width="192" height="192" rx="42" fill="url(#glow)"/>
+  <rect x="1.5" y="1.5" width="189" height="189" rx="40.5" fill="none" stroke="#ffffff" stroke-opacity="0.12" stroke-width="3"/>
+  <!-- layers: two stacked sheets -->
+  <path d="M22 130 L72 104 L122 130 L72 156 Z" fill="#ffffff" fill-opacity="0.30"/>
+  <path d="M22 111 L72 85 L122 111 L72 137 Z" fill="#ffffff"/>
+  <!-- bridge arc, glow under it -->
+  <path d="M72 85 C 72 40, 112 26, 142 48" fill="none" stroke="url(#arc)" stroke-width="18" stroke-linecap="round" filter="url(#soft)" opacity="0.85"/>
+  <path d="M72 85 C 72 40, 112 26, 142 48" fill="none" stroke="url(#arc)" stroke-width="14" stroke-linecap="round"/>
+  <!-- workflow node -->
+  <rect x="122" y="28" width="48" height="48" rx="13" fill="url(#node)"/>
+  <circle cx="146" cy="52" r="8.5" fill="#ffffff"/>
+  <circle cx="72" cy="85" r="9" fill="#22d3ee" stroke="#ffffff" stroke-width="4"/>
+</svg>
