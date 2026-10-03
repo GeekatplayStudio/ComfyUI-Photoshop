@@ -3,12 +3,25 @@
  * by Geekatplay Studio - Vladimir Chopine
  * https://www.geekatplay.com
  */
+html,
+body {
+    height: 100%;
+    margin: 0;
+}
+
 body {
     color: var(--uxp-host-text-color);
     font-size: var(--uxp-host-font-size);
     padding: 8px 10px;
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
+    overflow-y: auto;
+}
+
+/* the sections keep their height; the body scrolls instead of squeezing them together */
+body > * {
+    flex-shrink: 0;
 }
 
 .status {
@@ -108,6 +121,77 @@ sp-textarea {
     margin-right: 4px;
 }
 
+.heading {
+    margin-top: 4px;
+}
+
+.heading sp-label {
+    margin-bottom: 0;
+}
+
+.input-row,
+.param-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.input-row .input-label,
+.param-row .param-label {
+    width: 38%;
+    min-width: 80px;
+    margin-right: 6px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.input-row select,
+.param-row select,
+.param-row sp-textfield {
+    flex: 1 1 auto;
+    width: auto;
+}
+
+.param-row sp-textarea {
+    flex: 1 1 auto;
+    width: auto;
+    height: 56px;
+}
+
+.param-group {
+    margin: 4px 0 2px;
+    color: var(--uxp-host-text-color-secondary);
+}
+
+.browse-panel {
+    display: flex;
+    flex-direction: column;
+}
+
+#browse-list {
+    margin-top: 6px;
+    max-height: 320px;
+    overflow-y: auto;
+}
+
+.browse-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    padding: 3px 0;
+    border-bottom: 1px solid var(--uxp-host-border-color);
+}
+
+.browse-row .grow {
+    overflow: hidden;
+}
+
+.browse-row sp-detail {
+    color: var(--uxp-host-text-color-secondary);
+}
+
 footer {
     display: flex;
     flex-direction: column;
@@ -125,6 +209,7 @@ sp-progressbar {
 }
 
 #workflows-note.error,
+#workflow-info.error,
 #message.error {
     color: #f29423;
 }

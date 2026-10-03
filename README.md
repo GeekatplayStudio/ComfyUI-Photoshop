@@ -123,8 +123,13 @@ Pick a workflow, type a prompt, press **Run**. ComfyUI runs it without the brows
 | no image input (**Generate**) | Only the prompt. The image is generated in the shape of the target. | The selection, or the whole canvas. |
 
 - An empty prompt keeps the prompt saved in the workflow.
+- **Inputs** lists every image the workflow takes and where it comes from - see
+  [Workflows with several images](#workflows-with-several-images) - and which node
+  receives the prompt.
+- **Settings** shows the workflow's own settings (steps, seed, model files, strength...)
+  as fields you can change; the values are kept per workflow. **All** lists every widget,
+  **Reset** returns to the values saved in the workflow.
 - **New seed each run** gives every `seed` / `noise_seed` a new value.
-- **Inputs** shows which node receives the layer and which the prompt, and lets you change it.
 - When you run a workflow that loads other models than the previous one, the panel first
   asks ComfyUI to unload its models and clear its cache, so the new models start with
   free memory. Running the same models again keeps them loaded.
@@ -166,11 +171,43 @@ The first run of a model takes longer while it loads.
 
 ## Your own workflows
 
-In **Settings > Add Workflow...** pick a workflow saved in ComfyUI - a regular save
-(**Workflow > Save**) or an API export (**Workflow > Export (API)**). Rename it in place,
-reorder with the arrows, remove with the cross. The file is read again before every run,
-so edits made in ComfyUI are picked up; if the file is gone, the copy saved at
-registration is used.
+Two ways to add workflows, both under **Settings**:
+
+- **Browse ComfyUI...** lists the official ComfyUI templates that run on your own
+  machine and make an image (Z-Image, Qwen Image, Flux, SDXL, upscalers, background
+  removal, image stitching...) plus every workflow you saved in ComfyUI. Search, press
+  **Add**. They are fetched from the connected ComfyUI, so this also works with a remote
+  server. Templates whose models you do not have show a *Missing models* note with a
+  **Copy download links** button.
+- **Add File...** picks a workflow file - a regular save (**Workflow > Save**) or an API
+  export (**Workflow > Export (API)**).
+
+Rename an entry in place, reorder with the arrows, remove with the cross. The source is
+read again before every run, so edits made in ComfyUI are picked up; if it is gone, the
+copy saved at registration is used.
+
+### Workflows with several images
+
+Every Load Image node the workflow reads becomes an **image slot** under **Inputs**, named
+after the input it feeds (`image1`, `reference_image2`...). Each slot has its own source:
+
+| Source | What is sent |
+| --- | --- |
+| Selection or selected layer | The visible pixels inside the selection; without one, the topmost selected layer. The default for the first slot. |
+| Selected layer 1, 2, 3... | The selected layers counted from the top of the Layers panel. Ctrl/Cmd-click several layers and they fill the slots in order - the default for the other slots. |
+| Whole canvas | Everything visible. |
+| Layer: *name* | That layer, wherever it is. |
+| Keep the workflow's image | The file saved in the workflow. |
+
+The result is placed over the first layer sent. A layer used by two slots is uploaded
+once.
+
+### Settings the panel shows
+
+The panel reads the settings the workflow author put forward: widgets promoted onto a
+subgraph (what the ComfyUI templates do) and titled primitive nodes, grouped by subgraph.
+A workflow without any gets the usual sampling, size and model inputs instead. Only
+plain values are editable; inputs wired to other nodes are not shown.
 
 ### How the panel finds the right nodes
 
@@ -181,12 +218,13 @@ this order and shows the outcome under **Inputs**:
    exactly where things go. Put them in a workflow and nothing is guessed.
 2. **Titles.** A Load Image or text node whose title contains "Photoshop" is used. Rename
    a node in ComfyUI to mark it without rewiring anything.
-3. **Structure.** Otherwise: the only Load Image node, and the text that feeds the
-   sampler's *positive* input - the negative prompt is left alone, also behind ControlNet
+3. **Structure.** Otherwise: every Load Image node something reads, and the text that
+   feeds the sampler's *positive* input - the negative prompt is left alone, also behind ControlNet
    and guidance nodes. For generated images the Empty Latent size is set to the shape of
    the target area, keeping the workflow's pixel count.
-4. **You choose.** If several nodes fit, the panel asks you to pick under **Inputs** and
-   remembers the choice for that workflow.
+4. **You choose.** If several text nodes fit, the panel asks you to pick under **Inputs**
+   and remembers the choice for that workflow. Image nodes never need a choice: each one
+   is a slot with its own source.
 
 Results are taken from Send to Photoshop nodes; without one, from saved images, then
 from previews.
@@ -213,7 +251,7 @@ Category **Geekatplay Studio/Photoshop**.
 | --- | --- |
 | ComfyUI server | Address of ComfyUI, `http://127.0.0.1:8188` by default. |
 | Max size sent | Scales what is sent so its long edge fits; `0` sends full size. The result is still fitted to the original area. |
-| Registered workflows | Your own workflow files. Built-in workflows come from the server and are not listed here. |
+| Registered workflows | Workflows added from ComfyUI's templates, from ComfyUI's saved workflows or from files. Built-in workflows come from the server and are not listed here. |
 
 Pixels travel uncompressed. An area larger than ComfyUI's upload limit (100 MB by
 default, about 5000 x 5000 pixels) needs a lower *Max size sent* or ComfyUI started with
@@ -227,7 +265,9 @@ default, about 5000 x 5000 pixels) needs a lower *Max size sent* or ComfyUI star
 | *ComfyUI is running but the ... nodes are not loaded* | Install the nodes on that ComfyUI and restart it. |
 | *Restart ComfyUI to load the built-in workflows* | The nodes were updated while ComfyUI was running. Restart it. |
 | *Value not in list* naming a model file | That model is not installed. Open the workflow in ComfyUI and choose a file you have. |
-| *several nodes that could receive the layer / prompt* | Pick the node under **Inputs** on the Workflows tab. |
+| *several nodes that could receive the prompt* | Pick the node under **Inputs** on the Workflows tab. |
+| *Select at least N layers* | The workflow has N image slots. Select that many layers, or give each slot a source under **Inputs**. |
+| *Missing models: ...* | Press **Copy download links**, download the files into the named model folders and press **Connect**. |
 | *... is not installed on this ComfyUI server* | Your workflow uses a custom node this server does not have. |
 | *The layer is larger than the ComfyUI upload limit* | Lower *Max size sent*, or start ComfyUI with `--max-upload-size`. |
 | *32-bit documents are not supported* | Image > Mode > 16 Bits/Channel. |
@@ -237,6 +277,9 @@ default, about 5000 x 5000 pixels) needs a lower *Max size sent* or ComfyUI star
 | `ConnectionResetError: [WinError 10054]` in the ComfyUI console | Harmless Windows message when a client drops its connection; ComfyUI keeps running. |
 
 Good to know:
+
+- Scrolling the mouse wheel over a dropdown changes its value (a Photoshop panel
+  behaviour); scroll with the cursor over a label or empty space instead.
 
 - A selection is sent as its bounding rectangle. Transparent pixels inside it are sent
   as black.

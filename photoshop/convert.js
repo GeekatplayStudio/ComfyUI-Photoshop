@@ -430,7 +430,40 @@ class Converter {
         }
         return output;
     }
+
+    /*
+     * The inputs the workflow author put forward, in their order: widgets promoted onto
+     * subgraph nodes (proxyWidgets) and titled primitive nodes at the root. Each entry is
+     * { id, key, label, group } in terms of the converted prompt.
+     */
+    exposed() {
+        const list = [];
+        for (const dto of this.dtos.values()) {
+            const { node } = dto;
+            if (!dto.path.length && PRIMITIVES.has(node.type) && node.title && node.outputs?.[0]?.links?.length) {
+                list.push({ id: dto.id, key: "value", label: node.title, group: "" });
+            }
+            const proxies = dto.subgraph && proxyWidgets(node);
+            for (const [innerId, key] of proxies ?? []) {
+                const inner = this.dtos.get([dto.id, ...String(innerId).split(":")].join(":"));
+                if (inner) list.push({ id: inner.id, key, label: this.proxyLabel(inner, key), group: node.title ?? dto.subgraph.data.name });
+            }
+        }
+        return list;
+    }
+
+    /* A promoted widget is named after the subgraph input that feeds it, else after its node. */
+    proxyLabel(inner, key) {
+        const slot = inner.node.inputs?.findIndex((i) => i.widget?.name === key || i.name === key) ?? -1;
+        const link = slot === -1 ? null : this.inputLink(inner, slot);
+        const input = link?.origin_id === SUBGRAPH_INPUT ? inner.host.subgraph.data.inputs?.[link.origin_slot] : null;
+        if (input) return input.label ?? input.name;
+        const title = inner.node.title ?? this.defs[inner.node.type]?.display_name ?? inner.node.type;
+        return `${title}: ${key}`;
+    }
 }
+
+const PRIMITIVES = new Set(["PrimitiveInt", "PrimitiveFloat", "PrimitiveBoolean", "PrimitiveString", "PrimitiveStringMultiline"]);
 
 function isUiWorkflow(data) {
     return Array.isArray(data?.nodes);
@@ -447,15 +480,17 @@ function uiNodeTypes(ui) {
 }
 
 /*
- * Returns { prompt, skipped }: the API workflow and the types of nodes that were left out
- * because the server does not know them and nothing depends on them.
+ * Returns { prompt, skipped, exposed }: the API workflow, the types of nodes that were left
+ * out because the server does not know them and nothing depends on them, and the inputs the
+ * author exposed (see Converter.exposed).
  */
 function convertUiWorkflow(ui, defs, random = Math.random) {
     if (ui.extra?.groupNodes && Object.keys(ui.extra.groupNodes).length) {
         throw new ConversionError("This workflow uses legacy group nodes. Convert them to subgraphs in ComfyUI, or register a Workflow > Export (API) file.");
     }
     const converter = new Converter(ui, defs, random);
-    return { prompt: converter.convert(), skipped: [...converter.skipped] };
+    const prompt = converter.convert();
+    return { prompt, skipped: [...converter.skipped], exposed: converter.exposed() };
 }
 
 module.exports = { isUiWorkflow, uiNodeTypes, convertUiWorkflow, widgetLayout, processDynamicPrompt, ConversionError };

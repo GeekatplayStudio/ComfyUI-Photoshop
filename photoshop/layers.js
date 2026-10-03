@@ -47,19 +47,68 @@ async function canvasTarget() {
     return { target: { docId: doc.id, layerId: doc.activeLayers[0]?.id, bounds }, width: bounds.right - bounds.left, height: bounds.bottom - bounds.top };
 }
 
+function findLayerByName(layers, name) {
+    for (const layer of layers) {
+        if (layer.name === name) return layer;
+        const inGroup = layer.layers && findLayerByName(layer.layers, name);
+        if (inGroup) return inGroup;
+    }
+    return null;
+}
+
+/* The pixel layers of a document top to bottom, groups walked into. */
+function pixelLayers(layers, out = []) {
+    for (const layer of layers) {
+        if (layer.kind === constants.LayerKind.GROUP) pixelLayers(layer.layers, out);
+        else out.push(layer);
+    }
+    return out;
+}
+
+/* Names of the pixel layers of the active document, top to bottom; [] without a document. */
+function layerNames() {
+    return app.documents.length ? pixelLayers(app.activeDocument.layers).map((l) => l.name) : [];
+}
+
+/* The selected layers top to bottom; activeLayers itself comes in selection order. */
+function selectedLayers(doc) {
+    const ids = new Set(doc.activeLayers.map((l) => l.id));
+    return pixelLayers(doc.layers).filter((l) => ids.has(l.id));
+}
+
 /*
  * Reads the pixels to send as 8-bit sRGB, scaled down so the long edge is at most `maxEdge`
- * (0 keeps full size): with a selection, what is visible inside its bounds; otherwise the
- * selected layer. `target` remembers where the result should go.
+ * (0 keeps full size). `source` says what: "active" is what is visible inside the selection,
+ * or the selected layer without one; "selected:N" the Nth selected layer (top to bottom);
+ * "canvas" everything visible; "layer:<name>" that layer. `target` remembers where the
+ * result should go.
  */
-async function readSource(maxEdge) {
+async function readSource(maxEdge, source = "active") {
     const doc = openDocument();
     if (doc.bitsPerChannel === constants.BitsPerChannelType.THIRTYTWO) {
         throw new Error("32-bit documents are not supported. Convert to 16 or 8 Bits/Channel (Image > Mode).");
     }
-    const selection = await selectionBounds(doc);
-    const layer = doc.activeLayers[0];
-    if (!selection && !layer) throw new Error("Select a layer or make a selection to send.");
+    let selection = null;
+    let layer = null;
+    let what;
+    if (source === "active") {
+        selection = await selectionBounds(doc);
+        layer = selectedLayers(doc)[0] ?? doc.activeLayers[0];
+        if (!selection && !layer) throw new Error("Select a layer or make a selection to send.");
+        what = selection ? "selection" : layer.name;
+    } else if (source === "canvas") {
+        selection = { left: 0, top: 0, right: doc.width, bottom: doc.height };
+        what = "canvas";
+    } else if (source.startsWith("selected:")) {
+        const n = Number(source.slice("selected:".length));
+        layer = selectedLayers(doc)[n - 1];
+        if (!layer) throw new Error(`Select at least ${n} layers (they are used top to bottom), or choose a layer for each image under Inputs.`);
+        what = layer.name;
+    } else {
+        layer = findLayerByName(doc.layers, source.slice("layer:".length));
+        if (!layer) throw new Error(`There is no layer named "${source.slice("layer:".length)}" in this document. Choose another under Inputs.`);
+        what = layer.name;
+    }
     // Document pixels. getPixels reports its sourceBounds in the coordinates of the pyramid
     // level it read, which is not the document when targetSize scales the pixels down.
     const b = selection ?? layer.boundsNoEffects;
@@ -86,7 +135,7 @@ async function readSource(maxEdge) {
             width: imageData.width,
             height: imageData.height,
             components: imageData.components,
-            name: `${doc.title.replace(/\.[^.]+$/, "")} - ${selection ? "selection" : layer.name}`,
+            name: `${doc.title.replace(/\.[^.]+$/, "")} - ${what}`,
             target: { docId: doc.id, layerId: layer?.id, bounds },
         };
         imageData.dispose();
@@ -152,4 +201,4 @@ async function placeImage(bytes, filename, target, layerName) {
     }
 }
 
-module.exports = { readSource, canvasTarget, placeImage };
+module.exports = { layerNames, readSource, canvasTarget, placeImage };

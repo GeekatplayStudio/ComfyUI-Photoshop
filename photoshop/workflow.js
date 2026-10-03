@@ -15,6 +15,14 @@ const SIZE_NODE = "GeekatplayPhotoshopSize";
 const OUTPUT_NODE = "GeekatplaySendToPhotoshop";
 const PLACEABLE = /\.(png|jpe?g|webp)$/i;
 const TEXT_KEYS = ["text", "prompt", "value", "string"];
+const PARAM_TYPES = ["INT", "FLOAT", "BOOLEAN", "STRING", "COMBO"];
+// Inputs worth editing in a workflow that does not promote any: sampling, size, strength and model choices.
+const PARAM_KEYS = new Set([
+    "seed", "noise_seed", "steps", "cfg", "guidance", "denoise", "sampler_name", "scheduler", "shift", "width", "height",
+    "megapixels", "resolution", "aspect_ratio", "strength", "strength_model", "strength_clip", "lora_name", "ckpt_name",
+    "unet_name", "clip_name", "vae_name", "text", "prompt", "negative_prompt",
+]);
+const MODEL_FILE = /\.(safetensors|sft|ckpt|gguf|pth?|bin)$/i;
 
 /* Parses a registered workflow file, either format. */
 function parseWorkflow(text) {
@@ -63,21 +71,54 @@ function textKey(node) {
     return TEXT_KEYS.find((key) => typeof node.inputs[key] === "string");
 }
 
+/* The name of the first input the image output of node `id` feeds, e.g. "image_1" for a "images.image_1" key. */
+function consumerKey(api, id) {
+    for (const node of Object.values(api)) {
+        for (const [key, value] of Object.entries(node.inputs)) {
+            if (isLink(value) && value[0] === id && value[1] === 0) return key.split(".").pop();
+        }
+    }
+    return null;
+}
+
 /*
- * Where the layer and the prompt can go in an API workflow.
- * Returns { image, prompt }, each { candidates: [{ id, key, label }], auto } where auto is
- * the list used when the user has not chosen: the Photoshop nodes when present, otherwise
- * the only Load Image node, and the text that feeds a sampler's positive input. auto is
- * null when there are several possibilities and the user has to choose.
+ * Roles of the Load Image nodes of a regular workflow: the label of the input each one feeds,
+ * which template authors name image1, reference_image2 and so on. Returns { nodeId: role }.
  */
-function findTargets(api) {
+function imageRoles(ui) {
+    const links = new Map((ui.links ?? []).map((l) => (Array.isArray(l) ? [l[0], { target_id: l[3], target_slot: l[4] }] : [l.id, l])));
+    const nodes = new Map((ui.nodes ?? []).map((n) => [n.id, n]));
+    const roles = {};
+    for (const node of nodes.values()) {
+        if (!/LoadImage/i.test(node.type)) continue;
+        const inputs = (node.outputs?.[0]?.links ?? []).map((id) => links.get(id)).map((link) => link && nodes.get(link.target_id)?.inputs?.[link.target_slot]).filter(Boolean);
+        const input = inputs.find((i) => i.label) ?? inputs[0];
+        if (input) roles[String(node.id)] = input.label ?? input.name;
+    }
+    return roles;
+}
+
+const byRole = (a, b) => a.role.localeCompare(b.role, undefined, { numeric: true }) || a.id.localeCompare(b.id, undefined, { numeric: true });
+
+/*
+ * Where the layers and the prompt go in an API workflow.
+ * image: every Load Image node as a slot { id, key, label, role }, Photoshop Image nodes first,
+ * then in role order; each slot gets its own layer (see resolveTargets).
+ * prompt: { candidates: [{ id, key, label }], auto } where auto is the list used when the user
+ * has not chosen: the Photoshop Prompt nodes when present, otherwise the text that feeds a
+ * sampler's positive input. auto is null when there are several and the user has to choose.
+ */
+function findTargets(api, roles = {}) {
     const entries = Object.entries(api);
     const candidates = (test, key) => entries.filter(([, n]) => test(n)).map(([id, n]) => ({ id, key: key(n), label: label(id, n) }));
     const marked = (list, type) => list.filter((c) => api[c.id].class_type === type || /photoshop/i.test(api[c.id]._meta?.title ?? ""));
 
+    // Load Image nodes nothing reads (a bypassed branch, say) get no slot.
     const images = candidates((n) => (n.class_type === IMAGE_NODE || /LoadImage/i.test(n.class_type)) && typeof n.inputs.image === "string", () => "image");
+    for (const slot of images) slot.role = roles[slot.id] ?? consumerKey(api, slot.id) ?? "image";
+    for (const slot of images.filter((s) => !consumerKey(api, s.id))) images.splice(images.indexOf(slot), 1);
     const markedImages = marked(images, IMAGE_NODE);
-    const image = { candidates: images, auto: markedImages.length ? markedImages : images.length <= 1 ? images : null };
+    const image = [...markedImages.sort(byRole), ...images.filter((c) => !markedImages.includes(c)).sort(byRole)];
 
     const texts = candidates((n) => textKey(n) && (n.class_type === PROMPT_NODE || /text|prompt|string/i.test(n.class_type)), textKey);
     const markedTexts = marked(texts, PROMPT_NODE);
@@ -96,22 +137,90 @@ function findTargets(api) {
     return { image, prompt: { candidates: texts, auto } };
 }
 
-/* Applies the user's saved choice ({ image, prompt } node ids, "" = automatic) to findTargets(). */
-function resolveTargets(api, choice = {}) {
-    const found = findTargets(api);
-    const pick = (kind, what) => {
-        const chosen = choice[kind] && found[kind].candidates.find((c) => c.id === choice[kind]);
-        if (chosen) return [chosen];
-        if (found[kind].auto) return found[kind].auto;
-        throw new Error(`This workflow has several nodes that could receive the ${what}. Choose one under "Inputs" on the Workflows tab.`);
-    };
-    return { image: pick("image", "layer"), prompt: pick("prompt", "prompt"), found };
+/*
+ * Applies the user's saved choice to findTargets(): choice.sources maps an image node id to
+ * its source ("active", "selected:N", "canvas", "layer:<name>" or "keep"); the first slot
+ * defaults to the selection or selected layer, further ones to the next selected layers.
+ * choice.prompt is the prompt node id ("" = automatic).
+ */
+function resolveTargets(api, choice = {}, roles) {
+    const found = findTargets(api, roles);
+    const image = found.image.map((slot, i) => ({ ...slot, source: choice.sources?.[slot.id] ?? (i ? `selected:${i + 1}` : "active") }));
+    const chosen = choice.prompt && found.prompt.candidates.find((c) => c.id === choice.prompt);
+    let prompt;
+    if (chosen) prompt = [chosen];
+    else if (found.prompt.auto) prompt = found.prompt.auto;
+    else throw new Error('This workflow has several nodes that could receive the prompt. Choose one under "Inputs" on the Workflows tab.');
+    return { image, prompt, found };
 }
 
 /* The model files an API workflow loads, as one string to compare workflows by. */
 function modelFiles(api) {
-    const files = Object.values(api).flatMap((node) => Object.values(node.inputs).filter((v) => typeof v === "string" && /\.(safetensors|sft|ckpt|gguf|pth?|bin)$/i.test(v)));
+    const files = Object.values(api).flatMap((node) => Object.values(node.inputs).filter((v) => typeof v === "string" && MODEL_FILE.test(v)));
     return [...new Set(files)].sort().join("|");
+}
+
+/*
+ * Models a regular workflow lists on its nodes (name, url, directory) that none of the
+ * server's loader combos offer. Template authors fill these in; the panel shows them with
+ * their download links before the run fails on them.
+ */
+function missingModels(ui, defs) {
+    const missing = new Map();
+    const graphs = [ui, ...(ui.definitions?.subgraphs ?? [])];
+    for (const node of graphs.flatMap((g) => g.nodes ?? [])) {
+        const def = defs[node.type];
+        const options = Object.values({ ...def?.input?.required, ...def?.input?.optional }).flatMap(([type]) => (Array.isArray(type) ? type : []));
+        for (const model of node.properties?.models ?? []) {
+            const have = options.some((o) => o === model.name || o.replace(/\\/g, "/").endsWith(`/${model.name}`));
+            if (!have && !missing.has(model.name)) missing.set(model.name, model);
+        }
+    }
+    return [...missing.values()];
+}
+
+/* The widget spec of an input from a node definition: { type, options, min, max, step }, or null when it is not a plain widget. */
+function inputSpec(def, key) {
+    const spec = def?.input?.required?.[key] ?? def?.input?.optional?.[key];
+    if (!spec) return null;
+    const [socketType, opts = {}] = spec;
+    const type = Array.isArray(socketType) ? "COMBO" : opts.widgetType ?? socketType;
+    if (!PARAM_TYPES.includes(type) || opts.forceInput) return null;
+    const out = { type };
+    if (type === "COMBO") out.options = Array.isArray(socketType) ? socketType : opts.options ?? [];
+    if (type === "STRING") out.multiline = !!opts.multiline;
+    for (const k of ["min", "max", "step"]) if (typeof opts[k] === "number") out[k] = opts[k];
+    return out;
+}
+
+/*
+ * The settings of an API workflow the panel lets the user edit: the inputs the workflow author
+ * exposed (promoted subgraph widgets and titled primitives, from convert.js) when there are
+ * any, otherwise the usual sampling, size and model inputs; with `all`, every plain widget.
+ * Inputs that take the layer or the prompt are left out. Each entry is
+ * { id, key, label, group, type, options?, min?, max?, step?, value }.
+ */
+function workflowParams(api, defs, exposed = [], targets = { image: [], prompt: [] }, all = false) {
+    const taken = new Set([...targets.image, ...targets.prompt].map((t) => `${t.id}/${t.key}`));
+    const params = [];
+    const add = ({ id, key, label: text, group }) => {
+        const node = api[id];
+        const value = node?.inputs[key];
+        if (value === undefined || isLink(value) || taken.has(`${id}/${key}`)) return;
+        const spec = inputSpec(defs[node.class_type], key);
+        if (!spec) return;
+        taken.add(`${id}/${key}`);
+        params.push({ id, key, label: text, group, ...spec, value });
+    };
+    exposed.forEach(add);
+    if (!params.length || all) {
+        for (const [id, node] of Object.entries(api)) {
+            for (const key of Object.keys(node.inputs)) {
+                if (all || (PARAM_KEYS.has(key) && (!/^(width|height)$/.test(key) || /Latent|Size|Resolution/i.test(node.class_type)))) add({ id, key, label: key, group: label(id, node) });
+            }
+        }
+    }
+    return params;
 }
 
 /* Width and height with the shape of `size` and about `area` pixels, in multiples of 16. */
@@ -122,13 +231,19 @@ function fitSize(size, area) {
 }
 
 /*
- * Returns a copy of `workflow` (API format) with the uploaded layer, the panel prompt, the
- * generation size and fresh seeds filled in. `targets` comes from resolveTargets(); `size`
- * is the shape of the area the result will cover, used when no layer is sent.
+ * Returns a copy of `workflow` (API format) with the user's settings, the uploaded layers,
+ * the panel prompt, the generation size and fresh seeds filled in. `targets` comes from
+ * resolveTargets() with `image` set on the slots that were uploaded; `values` maps "id/key"
+ * to a setting value; `size` is the shape of the area the result will cover, used when no
+ * layer is sent.
  */
-function prepareWorkflow(workflow, { image, prompt = "", targets, size, randomizeSeed = false, random = Math.random }) {
+function prepareWorkflow(workflow, { prompt = "", targets, values = {}, size, randomizeSeed = false, random = Math.random }) {
     const prepared = JSON.parse(JSON.stringify(workflow));
-    if (image) for (const target of targets.image) prepared[target.id].inputs[target.key] = image;
+    for (const [path, value] of Object.entries(values)) {
+        const [id, key] = path.split("/");
+        if (prepared[id] && key in prepared[id].inputs && !isLink(prepared[id].inputs[key])) prepared[id].inputs[key] = value;
+    }
+    for (const slot of targets.image) if (slot.image) prepared[slot.id].inputs[slot.key] = slot.image;
     if (prompt.trim()) for (const target of targets.prompt) prepared[target.id].inputs[target.key] = prompt;
 
     if (size) {
@@ -186,4 +301,4 @@ function promptError(body) {
     return lines.join("\n");
 }
 
-module.exports = { parseWorkflow, checkApiWorkflow, findTargets, resolveTargets, modelFiles, fitSize, prepareWorkflow, resultImages, historyError, promptError };
+module.exports = { parseWorkflow, checkApiWorkflow, imageRoles, findTargets, resolveTargets, modelFiles, missingModels, workflowParams, fitSize, prepareWorkflow, resultImages, historyError, promptError };

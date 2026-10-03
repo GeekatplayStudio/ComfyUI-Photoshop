@@ -3,11 +3,13 @@
  * by Geekatplay Studio - Vladimir Chopine
  * https://www.geekatplay.com
  *
- * Stored as settings.json in the plugin data folder. Registered workflows keep a
- * snapshot of the API workflow plus a persistent token to the file, so edits to the
- * file are picked up on the next run and the snapshot covers a moved file.
+ * Stored as settings.json in the plugin data folder. A registered workflow keeps a
+ * snapshot of the workflow plus where it came from - a persistent token to a file, a
+ * ComfyUI template name or a path in ComfyUI's workflows folder - so edits are picked up
+ * on the next run and the snapshot covers a source that is gone.
  */
 const { storage } = require("uxp");
+const comfy = require("./comfy.js");
 const { parseWorkflow } = require("./workflow.js");
 
 const fs = storage.localFileSystem;
@@ -18,8 +20,10 @@ const DEFAULTS = {
     maxEdge: 0,
     placeResults: true,
     randomizeSeed: true,
+    allParams: false,
     workflows: [],
-    targets: {},   // workflow id -> { image, prompt } node ids chosen by the user
+    targets: {},   // workflow id -> { sources: { image node id -> source }, prompt: node id } chosen by the user
+    params: {},    // workflow id -> { "node id/input": value } edited under Settings
 };
 
 async function loadSettings() {
@@ -28,9 +32,9 @@ async function loadSettings() {
     try {
         entry = await folder.getEntry(SETTINGS_FILE);
     } catch {
-        return { ...DEFAULTS, workflows: [], targets: {} };
+        return { ...DEFAULTS, workflows: [], targets: {}, params: {} };
     }
-    return { ...DEFAULTS, ...JSON.parse(await entry.read()) };
+    return { ...DEFAULTS, workflows: [], targets: {}, params: {}, ...JSON.parse(await entry.read()) };
 }
 
 async function saveSettings(settings) {
@@ -38,30 +42,33 @@ async function saveSettings(settings) {
     await file.write(JSON.stringify(settings, null, 2));
 }
 
+function newId() {
+    return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+}
+
 /* Opens the file picker; returns the new registry entry, or null when the picker was cancelled. */
 async function pickWorkflow() {
     const file = await fs.getFileForOpening({ types: ["json"] });
     if (!file) return null;
     const workflow = parseWorkflow(await file.read());
-    return {
-        id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
-        name: file.name.replace(/\.json$/i, ""),
-        path: file.nativePath,
-        token: await fs.createPersistentToken(file),
-        workflow,
-    };
+    return { id: newId(), kind: "file", name: file.name.replace(/\.json$/i, ""), path: file.nativePath, token: await fs.createPersistentToken(file), workflow };
 }
 
-/* Re-reads the registered file. Returns false when only the stored snapshot is available. */
+/* Registry entry for a ComfyUI template (kind "template", path = template name) or a workflow saved in ComfyUI (kind "server", path in its workflows folder). */
+function serverWorkflow(kind, path, name, workflow) {
+    return { id: newId(), kind, name, path, workflow };
+}
+
+/* Re-reads the registered workflow from its source. Returns false when only the stored snapshot is available. */
 async function refreshWorkflow(entry) {
-    let text;
     try {
-        text = await (await fs.getEntryForPersistentToken(entry.token)).read();
+        if (entry.kind === "template") entry.workflow = await comfy.template(entry.path);
+        else if (entry.kind === "server") entry.workflow = await comfy.userWorkflow(entry.path);
+        else entry.workflow = parseWorkflow(await (await fs.getEntryForPersistentToken(entry.token)).read());
     } catch {
         return false;
     }
-    entry.workflow = parseWorkflow(text);
     return true;
 }
 
-module.exports = { loadSettings, saveSettings, pickWorkflow, refreshWorkflow };
+module.exports = { loadSettings, saveSettings, pickWorkflow, serverWorkflow, refreshWorkflow };

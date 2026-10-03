@@ -23,6 +23,18 @@ for (const file of fs.readdirSync(FIXTURES).filter((f) => f.endsWith(".api.json"
     });
 }
 
+test("exposed inputs: promoted subgraph widgets, nested ones and titled primitives", () => {
+    const read = (name) => JSON.parse(fs.readFileSync(path.join(FIXTURES, `${name}.json`), "utf8"));
+    const depth = convertUiWorkflow(read("flux_depth_lora_example"), DEFS).exposed;
+    const keys = depth.map((e) => `${e.id}/${e.key}`);
+    assert.ok(keys.includes("150:3/seed") && keys.includes("150:41:101/sigma"), keys.join(" "));
+    assert.deepEqual(depth.find((e) => e.key === "seed"), { id: "150:3", key: "seed", label: "seed", group: "Depth to Image(Flux.1 Dev)" });
+    assert.equal(depth.find((e) => e.key === "sigma").group, "Lotus Depth(Subgraph)");
+
+    const relight = convertUiWorkflow(read("templates-product_scene_relight"), DEFS).exposed;
+    assert.deepEqual(relight.map((e) => e.label), ["Describe the Product", "Prompt Template"]);
+});
+
 const defs = {
     GeekatplayPhotoshopImage: { input: { required: { image: [["a.png"], { image_upload: true }] } }, input_order: { required: ["image"] }, display_name: "Photoshop Image" },
     GeekatplayPhotoshopPrompt: { input: { required: { text: ["STRING", { multiline: true }] } }, input_order: { required: ["text"] }, display_name: "Photoshop Prompt" },

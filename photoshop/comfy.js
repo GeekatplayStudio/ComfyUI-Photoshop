@@ -9,6 +9,7 @@ let base = "http://127.0.0.1:8188";
 // Jobs queued from the panel carry their own client id so ComfyUI does not stream their
 // node outputs into the browser tab, where they would land on unrelated nodes.
 const clientId = `photoshop-${Date.now().toString(36)}`;
+const defs = new Map(); // node class -> /object_info entry
 
 function setServer(address) {
     base = address.trim().replace(/\/+$/, "");
@@ -52,13 +53,36 @@ function postJson(path, data) {
 }
 
 function systemStats() {
+    defs.clear();
     return request("/system_stats");
 }
 
-/* Node definitions for the given class names; unknown classes are left out. */
+/* Node definitions for the given class names; unknown classes are left out. Cached until the next connect. */
 async function nodeDefs(types) {
-    const found = await Promise.all(types.map((type) => request(`/object_info/${encodeURIComponent(type)}`)));
+    const found = await Promise.all(types.map(async (type) => {
+        if (!defs.has(type)) defs.set(type, await request(`/object_info/${encodeURIComponent(type)}`));
+        return defs.get(type);
+    }));
     return Object.assign({}, ...found);
+}
+
+/* ComfyUI's template catalog as one list, each template with its category title. */
+async function templates() {
+    const index = await request("/templates/index.json");
+    return index.flatMap((category) => category.templates.map((t) => ({ ...t, category: category.title })));
+}
+
+function template(name) {
+    return request(`/templates/${encodeURIComponent(name)}.json`);
+}
+
+/* Paths of the workflows saved in ComfyUI (Workflow > Save), relative to its workflows folder. */
+function userWorkflows() {
+    return request("/api/userdata?dir=workflows&recurse=true");
+}
+
+function userWorkflow(path) {
+    return request(`/api/userdata/${encodeURIComponent(`workflows/${path}`)}`);
 }
 
 /* `pixels` is 8-bit chunky RGB or RGBA. Returns the ComfyUI image name, e.g. "photoshop/Layer 1_20261002-101500.png". */
@@ -130,4 +154,4 @@ function newPromptId() {
     return `${s.slice(0, 8)}-${s.slice(8, 12)}-${s.slice(12, 16)}-${s.slice(16, 20)}-${s.slice(20)}`;
 }
 
-module.exports = { setServer, systemStats, nodeDefs, uploadLayer, sendToOpenWorkflow, builtinWorkflows, state, queuePrompt, history, interrupt, freeMemory, deleteQueued, downloadImage, newPromptId };
+module.exports = { setServer, systemStats, nodeDefs, templates, template, userWorkflows, userWorkflow, uploadLayer, sendToOpenWorkflow, builtinWorkflows, state, queuePrompt, history, interrupt, freeMemory, deleteQueued, downloadImage, newPromptId };

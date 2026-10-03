@@ -17,7 +17,8 @@ The dot at the top of the panel turns green when it can reach ComfyUI.
 ## Try it
 
 1. Open any document in Photoshop.
-2. In the panel open the **Workflows** tab. The built-in workflows are already in the list.
+2. In the panel open the **Workflows** tab. The built-in workflows are already in the list;
+   **Settings > Browse ComfyUI...** adds ComfyUI's own templates.
 3. Pick **Generate - Z-Image Turbo** (or Qwen, Flux, SDXL), type a prompt and press **Run**.
    The image arrives as a new layer.
 4. Pick an **Edit - ...** workflow, select a layer or make a selection, type what to change

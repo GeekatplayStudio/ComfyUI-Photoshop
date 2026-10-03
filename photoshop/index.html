@@ -33,12 +33,19 @@
         <sp-body size="S" id="workflows-note" class="hidden"></sp-body>
         <sp-label>Workflow</sp-label>
         <select id="workflow-select"></select>
+        <sp-body size="XS" id="workflow-info" class="error hidden"></sp-body>
+        <sp-action-button id="copy-models" class="hidden" quiet>Copy download links</sp-action-button>
         <sp-label>Prompt (empty = the prompt saved in the workflow)</sp-label>
         <sp-textarea id="prompt"></sp-textarea>
-        <sp-label>Inputs: layer goes to / prompt goes to</sp-label>
-        <select id="image-target"></select>
-        <select id="prompt-target"></select>
+        <sp-label>Inputs</sp-label>
+        <div id="inputs"></div>
         <sp-body size="XS" id="inputs-hint" class="hint"></sp-body>
+        <div class="row heading">
+            <sp-label class="grow">Settings</sp-label>
+            <sp-checkbox id="all-params" size="s">All</sp-checkbox>
+            <sp-action-button id="reset-params" size="s" quiet>Reset</sp-action-button>
+        </div>
+        <div id="params"></div>
         <sp-checkbox id="randomize-seed">New seed each run</sp-checkbox>
         <div class="row">
             <sp-button id="run" variant="cta">Run</sp-button>
@@ -59,8 +66,15 @@
         <sp-label>Registered workflows</sp-label>
         <sp-body size="XS" id="builtin-count" class="hint"></sp-body>
         <div id="workflow-list"></div>
-        <sp-button id="add-workflow" variant="secondary">Add Workflow...</sp-button>
-        <sp-body size="XS" class="hint">Register workflows saved in ComfyUI (Workflow &gt; Save or Export (API)). The layer goes to the Photoshop Image node (or the only Load Image node), the prompt to the Photoshop Prompt node.</sp-body>
+        <div class="row">
+            <sp-button id="add-workflow" variant="secondary">Add File...</sp-button>
+            <sp-button id="browse" variant="secondary">Browse ComfyUI...</sp-button>
+        </div>
+        <sp-body size="XS" class="hint">Add a workflow file saved from ComfyUI (Workflow &gt; Save or Export (API)), or browse the image templates and the workflows saved in ComfyUI.</sp-body>
+        <div id="browse-panel" class="browse-panel hidden">
+            <sp-textfield id="browse-search" placeholder="Search templates and saved workflows"></sp-textfield>
+            <div id="browse-list"></div>
+        </div>
     </section>
 
     <footer>

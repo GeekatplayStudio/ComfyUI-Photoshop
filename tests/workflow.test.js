@@ -7,13 +7,14 @@
  */
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { parseWorkflow, findTargets, resolveTargets, modelFiles, fitSize, prepareWorkflow, resultImages, historyError, promptError } = require("../photoshop/workflow.js");
+const { parseWorkflow, imageRoles, findTargets, resolveTargets, modelFiles, missingModels, workflowParams, fitSize, prepareWorkflow, resultImages, historyError, promptError } = require("../photoshop/workflow.js");
 
 const API = {
     "1": { class_type: "GeekatplayPhotoshopImage", inputs: { image: "photoshop/old.png" } },
     "2": { class_type: "GeekatplayPhotoshopPrompt", inputs: { text: "default prompt" } },
     "3": { class_type: "CLIPTextEncode", inputs: { text: ["2", 0], clip: ["9", 1] } },
-    "4": { class_type: "KSampler", inputs: { seed: 5, steps: 20, model: ["9", 0], positive: ["3", 0] } },
+    "4": { class_type: "KSampler", inputs: { seed: 5, steps: 20, model: ["9", 0], positive: ["3", 0], latent_image: ["5", 0] } },
+    "5": { class_type: "VAEEncode", inputs: { pixels: ["1", 0], vae: ["9", 2] } },
     "6": { class_type: "RandomNoise", inputs: { noise_seed: ["7", 0] } },
     "8": { class_type: "GeekatplaySendToPhotoshop", inputs: { images: ["4", 0], filename_prefix: "Photoshop/result" } },
 };
@@ -42,7 +43,7 @@ test("parseWorkflow accepts API and regular workflows and explains junk", () => 
 
 test("Photoshop nodes are the automatic targets", () => {
     const targets = resolveTargets(API);
-    assert.deepEqual(targets.image, [{ id: "1", key: "image", label: "GeekatplayPhotoshopImage (#1)" }]);
+    assert.deepEqual(targets.image, [{ id: "1", key: "image", label: "GeekatplayPhotoshopImage (#1)", role: "pixels", source: "active" }]);
     assert.deepEqual(targets.prompt, [{ id: "2", key: "text", label: "GeekatplayPhotoshopPrompt (#2)" }]);
 });
 
@@ -64,21 +65,41 @@ test("a prompt primitive feeding the encoder, guiders and titles are understood"
 
     const titled = JSON.parse(JSON.stringify(PLAIN));
     titled["8"] = { class_type: "LoadImage", _meta: { title: "Photoshop layer" }, inputs: { image: "b.png" } };
-    assert.deepEqual(ids(resolveTargets(titled).image), ["8"]);
+    titled["11"] = { class_type: "VAEEncode", inputs: { pixels: ["8", 0] } };
+    assert.deepEqual(ids(resolveTargets(titled).image), ["8", "4"], "the Photoshop-titled node comes first");
 });
 
-test("ambiguous workflows ask the user, and the saved choice is used", () => {
+test("every Load Image something reads is a slot with its own source, in role order", () => {
     const two = JSON.parse(JSON.stringify(PLAIN));
     two["8"] = { class_type: "LoadImage", inputs: { image: "b.png" } };
+    two["9"] = { class_type: "TextEncodeQwenImageEditPlus", inputs: { "images.image_2": ["8", 0], "images.image_1": ["4", 0], prompt: "x" } };
+    two["10"] = { class_type: "LoadImage", inputs: { image: "unused.png" } };
+    const slots = resolveTargets(two).image;
+    assert.deepEqual(slots.map((s) => [s.id, s.role, s.source]), [["4", "image", "active"], ["8", "image_2", "selected:2"]]);
+    const chosen = resolveTargets(two, { sources: { "8": "layer:Reference" } }).image;
+    assert.deepEqual(chosen.map((s) => s.source), ["active", "layer:Reference"]);
+
+    const roles = imageRoles({
+        nodes: [
+            { id: 4, type: "LoadImage", outputs: [{ links: [1, 2] }] },
+            { id: 8, type: "LoadImage", outputs: [{ links: [3] }] },
+            { id: 20, type: "sub", inputs: [{ name: "image" }, { name: "image_1", label: "reference_image2" }] },
+            { id: 21, type: "sub", inputs: [{ name: "image", label: "reference_image1" }] },
+        ],
+        links: [[1, 4, 0, 20, 0, "IMAGE"], [2, 4, 0, 21, 0, "IMAGE"], [3, 8, 0, 20, 1, "IMAGE"]],
+    });
+    assert.deepEqual(roles, { "4": "reference_image1", "8": "reference_image2" }, "a labelled input names the role");
+    assert.deepEqual(resolveTargets(two, {}, roles).image.map((s) => s.role), ["reference_image1", "reference_image2"]);
+});
+
+test("a workflow with several prompt nodes asks the user, and the saved choice is used", () => {
+    const two = JSON.parse(JSON.stringify(PLAIN));
     two["9"] = { class_type: "CLIPTextEncode", inputs: { text: "second" } };
     two["7"].inputs.positive = ["10", 0];
     two["10"] = { class_type: "ConditioningCombine", inputs: { conditioning_1: ["5", 0], conditioning_2: ["9", 0] } };
-    assert.equal(findTargets(two).image.auto, null);
     assert.equal(findTargets(two).prompt.auto, null);
-    assert.throws(() => resolveTargets(two), /several nodes.*layer/);
-    assert.throws(() => resolveTargets(two, { image: "8" }), /several nodes.*prompt/);
-    const targets = resolveTargets(two, { image: "8", prompt: "9" });
-    assert.deepEqual([ids(targets.image), ids(targets.prompt)], [["8"], ["9"]]);
+    assert.throws(() => resolveTargets(two), /several nodes.*prompt/);
+    assert.deepEqual(ids(resolveTargets(two, { prompt: "9" }).prompt), ["9"]);
 });
 
 test("a workflow without an image input generates from the prompt", () => {
@@ -88,16 +109,22 @@ test("a workflow without an image input generates from the prompt", () => {
     assert.deepEqual(resolveTargets(generate).image, []);
 });
 
-test("prepareWorkflow fills image, prompt and seeds without touching the original", () => {
-    const prepared = prepareWorkflow(API, { image: "photoshop/new.png", prompt: "a fennec girl", targets: resolveTargets(API), randomizeSeed: true, random: () => 0.5 });
+test("prepareWorkflow fills settings, images, prompt and seeds without touching the original", () => {
+    const targets = resolveTargets(API);
+    targets.image[0].image = "photoshop/new.png";
+    const values = { "4/steps": 30, "4/model": "ignored: links stay", "99/x": 1 };
+    const prepared = prepareWorkflow(API, { prompt: "a fennec girl", targets, values, randomizeSeed: true, random: () => 0.5 });
     assert.equal(prepared["1"].inputs.image, "photoshop/new.png");
     assert.equal(prepared["2"].inputs.text, "a fennec girl");
+    assert.equal(prepared["4"].inputs.steps, 30);
+    assert.deepEqual(prepared["4"].inputs.model, ["9", 0]);
     assert.equal(prepared["4"].inputs.seed, 2 ** 47);
     assert.deepEqual(prepared["6"].inputs.noise_seed, ["7", 0], "linked seeds stay linked");
     assert.equal(API["1"].inputs.image, "photoshop/old.png");
     assert.equal(API["4"].inputs.seed, 5);
 
-    const kept = prepareWorkflow(API, { image: "photoshop/new.png", prompt: "  ", targets: resolveTargets(API) });
+    const kept = prepareWorkflow(API, { prompt: "  ", targets: resolveTargets(API) });
+    assert.equal(kept["1"].inputs.image, "photoshop/old.png", "a slot without an upload keeps the workflow's file");
     assert.equal(kept["2"].inputs.text, "default prompt");
     assert.equal(kept["4"].inputs.seed, 5);
 });
@@ -121,6 +148,34 @@ test("modelFiles tells workflows with different models apart", () => {
     assert.equal(modelFiles(a), "ae.safetensors|z.safetensors");
     assert.equal(modelFiles(sameModels), modelFiles(a));
     assert.notEqual(modelFiles(PLAIN), modelFiles(a));
+});
+
+test("workflowParams lists the exposed inputs, else the usual sampling and model inputs", () => {
+    const defs = {
+        KSampler: { input: { required: { model: ["MODEL"], seed: ["INT", { default: 0, min: 0 }], steps: ["INT", { min: 1, max: 100 }], sampler_name: [["euler", "dpmpp_2m"]] } } },
+        CLIPTextEncode: { input: { required: { text: ["STRING", { multiline: true }] } } },
+        CheckpointLoaderSimple: { input: { required: { ckpt_name: [["a.safetensors"]] } } },
+        EmptyLatentImage: { input: { required: { width: ["INT", {}], height: ["INT", {}], batch_size: ["INT", {}] } } },
+    };
+    const targets = resolveTargets(PLAIN);
+    const usual = workflowParams(PLAIN, defs, [], targets);
+    assert.deepEqual(usual.map((p) => `${p.id}/${p.key}`), ["1/ckpt_name", "3/text", "6/width", "6/height", "7/seed"], "the prompt, links and inputs without a definition are left out");
+    assert.deepEqual(usual[4], { id: "7", key: "seed", label: "seed", group: "KSampler (#7)", type: "INT", min: 0, value: 1 });
+    assert.deepEqual(usual[0].options, ["a.safetensors"]);
+    assert.equal(usual[1].multiline, true);
+
+    const exposed = [{ id: "7", key: "seed", label: "Seed", group: "Main" }, { id: "7", key: "model", label: "linked", group: "Main" }, { id: "2", key: "text", label: "the prompt", group: "Main" }];
+    assert.deepEqual(workflowParams(PLAIN, defs, exposed, targets).map((p) => p.label), ["Seed"]);
+    assert.deepEqual(workflowParams(PLAIN, defs, exposed, targets, true).map((p) => p.label), ["Seed", "ckpt_name", "text", "width", "height", "batch_size"], "'all' adds every plain widget after the exposed ones");
+});
+
+test("missingModels compares the models a workflow lists with the server's loader options", () => {
+    const defs = { CheckpointLoaderSimple: { input: { required: { ckpt_name: [["sdxl/sd_xl_base_1.0.safetensors"]] } } } };
+    const ui = {
+        nodes: [{ id: 1, type: "CheckpointLoaderSimple", properties: { models: [{ name: "sd_xl_base_1.0.safetensors", url: "https://x/a", directory: "checkpoints" }] } }],
+        definitions: { subgraphs: [{ id: "s", nodes: [{ id: 2, type: "UNETLoader", properties: { models: [{ name: "flux.safetensors", url: "https://x/b", directory: "diffusion_models" }, { name: "flux.safetensors", url: "https://x/b" }] } }] }] },
+    };
+    assert.deepEqual(missingModels(ui, defs).map((m) => m.name), ["flux.safetensors"], "a model in a subfolder counts; subgraph nodes are checked; duplicates listed once");
 });
 
 test("resultImages prefers Send to Photoshop, then saved images, then previews", () => {
