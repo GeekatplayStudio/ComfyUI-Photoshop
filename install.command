@@ -92,6 +92,8 @@ install_plugin() {
         return
     fi
     local output
+    # An earlier version stays registered next to the new one unless it is removed first.
+    "$AGENT" --remove "Geekatplay ComfyUI Bridge" >/dev/null 2>&1
     if output="$("$AGENT" --install "$CCX" 2>&1)"; then
         ok "Installed the ComfyUI Bridge panel."
         say "Open Plugins > Geekatplay ComfyUI Bridge in Photoshop (restart Photoshop if it is not there yet)."

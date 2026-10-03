@@ -68,8 +68,9 @@ What the installer does:
 1. Copies the nodes to `ComfyUI/custom_nodes/ComfyUI-Geekatplay-Photoshop`
    (skipped when you run it from inside `custom_nodes`).
 2. Packs the panel into `build/GeekatplayComfyUIBridge.ccx`.
-3. Installs the panel with Adobe's plugin installer. If that is not available it shows
-   the manual steps below.
+3. Installs the panel with Adobe's plugin installer, removing any earlier version first so
+   only one copy stays registered. If the installer is not available it shows the manual
+   steps below.
 
 ### Manual install
 
@@ -100,6 +101,10 @@ git clone https://github.com/GeekatplayStudio/ComfyUI-Photoshop
 ### Updating
 
 Download or `git pull` the new version, run the installer again and **restart ComfyUI**.
+The installer replaces the panel in place and Photoshop reloads it right away. Your
+server address, added workflows and their settings are kept in the panel's own storage,
+which starts empty after an update from 1.0 - add your workflows again with
+**Browse ComfyUI...** or **Add File...**.
 The panel tells you when ComfyUI is still running an older version of the nodes.
 
 ## First run
@@ -279,6 +284,7 @@ default, about 5000 x 5000 pixels) needs a lower *Max size sent* or ComfyUI star
 | *32-bit documents are not supported* | Image > Mode > 16 Bits/Channel. |
 | A built-in workflow opened in ComfyUI warns about a missing image | Expected until you send a layer to it. |
 | The installer cannot install the panel | Open the Creative Cloud app, sign in, then double-click `build/GeekatplayComfyUIBridge.ccx`. |
+| *no such file or directory* when a result is placed, right after updating the panel | The open panel is the old copy. Close the panel and reopen it from **Plugins**, or restart Photoshop. |
 | The panel's icon is empty when the panel is collapsed in a dock (Windows) | Fixed in this version: run the installer again, then restart Photoshop once (Photoshop reads dock icons at startup). |
 | `ConnectionResetError: [WinError 10054]` in the ComfyUI console | Harmless Windows message when a client drops its connection; ComfyUI keeps running. |
 

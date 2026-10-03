@@ -134,6 +134,8 @@ function Install-Plugin {
         Show-ManualSteps
         return
     }
+    # An earlier version stays registered next to the new one unless it is removed first.
+    & $agent /remove "Geekatplay ComfyUI Bridge" 2>&1 | Out-Null
     $output = & $agent /install $Ccx 2>&1 | Out-String
     if ($LASTEXITCODE -eq 0) {
         Ok "Installed the ComfyUI Bridge panel."
