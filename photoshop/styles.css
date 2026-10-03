@@ -44,6 +44,19 @@ body > * {
     background-color: #2d9d78;
 }
 
+.setup {
+    display: flex;
+    flex-direction: column;
+    padding: 8px;
+    margin-bottom: 10px;
+    border: 1px solid var(--uxp-host-border-color);
+    border-radius: 4px;
+}
+
+.setup > * {
+    margin-bottom: 4px;
+}
+
 .tabs {
     display: flex;
     flex-direction: row;
@@ -173,7 +186,7 @@ sp-textarea {
 
 #browse-list {
     margin-top: 6px;
-    max-height: 320px;
+    max-height: 560px;
     overflow-y: auto;
 }
 

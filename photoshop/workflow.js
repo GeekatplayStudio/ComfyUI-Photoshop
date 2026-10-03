@@ -220,23 +220,26 @@ function inputSpec(def, key, inputs) {
 function workflowParams(api, defs, exposed = [], targets = { image: [], prompt: [] }, all = false) {
     const taken = new Set([...targets.image, ...targets.prompt].map((t) => `${t.id}/${t.key}`));
     const params = [];
-    const add = ({ id, key, label: text, group }) => {
+    const add = ({ id, key, label: text, group, node: byNode = false }) => {
         const node = api[id];
         const value = node?.inputs[key];
         if (value === undefined || isLink(value) || taken.has(`${id}/${key}`)) return;
         const spec = inputSpec(defs[node.class_type], key, node.inputs);
         if (!spec) return;
         taken.add(`${id}/${key}`);
-        params.push({ id, key, label: text, group, ...spec, value });
+        params.push({ id, key, label: text, group, ...spec, value, byNode });
     };
     exposed.forEach(add);
     for (const [id, node] of Object.entries(api)) {
         for (const key of Object.keys(node.inputs)) {
             const name = key.split(".").pop();
-            if (all || (PARAM_KEYS.has(name) && (!/^(width|height)$/.test(name) || /Latent|Size|Resolution/i.test(node.class_type)))) add({ id, key, label: key, group: label(id, node) });
+            if (all || (PARAM_KEYS.has(name) && (!/^(width|height)$/.test(name) || /Latent|Size|Resolution/i.test(node.class_type)))) add({ id, key, label: key, group: node._meta?.title ?? node.class_type, node: true });
         }
     }
-    return params;
+    // Node groups are named by title; the id is added only where two nodes share one.
+    const ids = new Map();
+    for (const p of params.filter((p) => p.byNode)) ids.set(p.group, new Set([...(ids.get(p.group) ?? []), p.id]));
+    return params.map(({ byNode, ...p }) => (byNode && ids.get(p.group).size > 1 ? { ...p, group: `${p.group} (#${p.id})` } : p));
 }
 
 /* Width and height with the shape of `size` and about `area` pixels, in multiples of 16. */

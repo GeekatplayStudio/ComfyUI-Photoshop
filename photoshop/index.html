@@ -16,6 +16,14 @@
         <sp-action-button id="refresh" size="s" quiet title="Read models, workflows and templates from ComfyUI again">Refresh</sp-action-button>
     </header>
 
+    <section id="setup" class="setup hidden">
+        <sp-body size="S">This panel runs your ComfyUI workflows. To connect it:</sp-body>
+        <sp-body size="XS">1. Install ComfyUI (free) on this computer or a server.</sp-body>
+        <sp-body size="XS">2. Install the Geekatplay Photoshop Bridge nodes into ComfyUI.</sp-body>
+        <sp-body size="XS">3. Start ComfyUI. A ComfyUI on another computer: enter its address under Settings.</sp-body>
+        <sp-action-button id="open-guide">Open the setup guide</sp-action-button>
+    </section>
+
     <nav class="tabs">
         <div class="tab selected" data-page="page-active">Active Workflow</div>
         <div class="tab" data-page="page-registered">Workflows</div>
@@ -58,9 +66,9 @@
     </section>
 
     <section id="page-settings" class="page hidden">
-        <sp-label>ComfyUI server</sp-label>
+        <sp-label>ComfyUI server (default http://127.0.0.1:8188)</sp-label>
         <div class="row">
-            <sp-textfield id="server" class="grow" placeholder="http://127.0.0.1:8188"></sp-textfield>
+            <sp-textfield id="server" class="grow"></sp-textfield>
             <sp-button id="connect" variant="secondary">Connect</sp-button>
         </div>
         <sp-label>Max size sent (long edge in pixels, 0 = full size)</sp-label>

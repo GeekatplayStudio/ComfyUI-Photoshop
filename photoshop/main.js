@@ -8,6 +8,9 @@ const layers = require("./layers.js");
 const store = require("./store.js");
 const { checkApiWorkflow, imageRoles, findTargets, resolveTargets, modelFiles, missingModels, workflowParams, prepareWorkflow, resultImages, historyError } = require("./workflow.js");
 const { isUiWorkflow, uiNodeTypes, convertUiWorkflow } = require("./convert.js");
+const { shell } = require("uxp");
+
+const SETUP_GUIDE = "https://github.com/GeekatplayStudio/ComfyUI-Photoshop#install";
 
 const $ = (id) => document.getElementById(id);
 
@@ -61,9 +64,11 @@ function action(id, fn) {
     });
 }
 
+/* The status line; without a connection the setup steps are shown, so a new user knows what the panel needs. */
 function setConnection(ok, text) {
     $("status-dot").className = ok ? "dot ok" : "dot";
     $("status-text").textContent = text;
+    $("setup").className = ok ? "setup hidden" : "setup";
 }
 
 /* Connects and reads the server's node definitions, built-in workflows and, when the browser is open, its templates. */
@@ -315,7 +320,8 @@ function labelled(container, className, text, control) {
     return control;
 }
 
-const pretty = (text) => text.replace(/_/g, " ");
+/* "resize_type.multiplier" -> "multiplier": settings are already grouped by node. */
+const pretty = (text) => text.split(".").pop().replace(/_/g, " ");
 
 /* Where each image slot and the prompt come from, with a picker per slot. */
 function renderInputs(found, targets) {
@@ -325,12 +331,15 @@ function renderInputs(found, targets) {
     const sources = [["active", "Selection or selected layer"]];
     for (let n = 1; n <= Math.max(2, targets.image.length); n++) sources.push([`selected:${n}`, `Selected layer ${n}`]);
     sources.push(["canvas", "Whole canvas"], ...names.map((name) => [`layer:${name}`, `Layer: ${name}`]), ["keep", "Keep the workflow's image"]);
-    for (const slot of targets.image) {
-        const select = labelled(inputs, "input-row", pretty(slot.role), document.createElement("select"));
+    // Slots whose inputs share a name (two Image Stitch nodes, say) are numbered instead.
+    const roles = targets.image.map((slot) => slot.role);
+    targets.image.forEach((slot, i) => {
+        const name = roles.indexOf(slot.role) === roles.lastIndexOf(slot.role) ? pretty(slot.role) : `image ${i + 1}`;
+        const select = labelled(inputs, "input-row", name, document.createElement("select"));
         select.title = slot.label;
         fillSelect(select, sources, slot.source);
         select.addEventListener("change", () => chooseSource(slot.id, select.value));
-    }
+    });
 
     const { candidates, auto } = found.prompt;
     const first = auto === null ? "Choose a node..." : auto.length ? `Auto: ${auto.map((c) => c.label).join(", ")}` : "Auto: none";
@@ -438,6 +447,7 @@ async function showWorkflow() {
         $("inputs-hint").textContent = entry ? "Connect to ComfyUI to see the inputs and settings." : "";
         return;
     }
+    $("inputs-hint").textContent = "Reading the workflow...";
     let api;
     try {
         api = await apiWorkflow(entry.workflow);
@@ -503,7 +513,8 @@ function removeSelected() {
     if (index !== -1) removeWorkflow(index);
 }
 
-function renderWorkflows() {
+/* Redraws the registered list and the workflow picker, keeping `selected` chosen when it is still there. */
+function renderWorkflows(selected = $("workflow-select").value) {
     const list = $("workflow-list");
     list.innerHTML = "";
     settings.workflows.forEach((entry, i) => {
@@ -526,7 +537,7 @@ function renderWorkflows() {
     if (!settings.workflows.length) list.textContent = "No workflows registered yet.";
 
     const all = [...builtin, ...settings.workflows];
-    fillSelect($("workflow-select"), all.map((w) => [w.id, w.name]), $("workflow-select").value);
+    fillSelect($("workflow-select"), all.map((w) => [w.id, w.name]), selected);
     updateRemoveButton();
     $("builtin-count").textContent = builtin.length ? `${builtin.length} built-in workflows come from the ComfyUI server.` : "";
     $("workflows-note").textContent = outdated ? "Restart ComfyUI to load the built-in workflows: it is running an older version of the Photoshop Bridge nodes." : "";
@@ -537,10 +548,7 @@ function renderWorkflows() {
 function registerWorkflow(entry) {
     settings.workflows.push(entry);
     persist();
-    renderWorkflows();
-    $("workflow-select").value = entry.id;
-    updateRemoveButton();
-    showWorkflow().catch(report);
+    renderWorkflows(entry.id);
     showMessage(`Registered ${entry.name}.`);
 }
 
@@ -555,7 +563,8 @@ async function addWorkflow() {
 async function loadCatalog() {
     if (lastSeq === null) throw new Error("Connect to ComfyUI first.");
     const [templates, saved] = await Promise.all([comfy.templates(), comfy.userWorkflows()]);
-    const makesImage = (t) => (t.io?.outputs ? t.io.outputs.some((o) => o.mediaType === "image") : t.mediaType === "image");
+    // Templates without output metadata are judged by their category (Image, Video, Audio...).
+    const makesImage = (t) => (t.io?.outputs ? t.io.outputs.some((o) => o.mediaType === "image") : t.categoryType === "image");
     const items = templates.filter((t) => t.openSource && makesImage(t)).map((t) => ({
         kind: "template",
         path: t.name,
@@ -601,7 +610,11 @@ async function toggleBrowse() {
         panel.className = "browse-panel hidden";
         return;
     }
-    catalog ??= await loadCatalog();
+    if (!catalog) {
+        showMessage("Loading the templates...");
+        catalog = await loadCatalog();
+        showMessage("");
+    }
     panel.className = "browse-panel";
     renderCatalog();
 }
@@ -632,6 +645,7 @@ async function init() {
     action("add-workflow", addWorkflow);
     action("browse", toggleBrowse);
     action("refresh", refresh);
+    action("open-guide", () => shell.openExternal(SETUP_GUIDE));
     action("reset-params", async () => resetParams());
     action("connect", async () => {
         settings.server = $("server").value.trim() || "http://127.0.0.1:8188";

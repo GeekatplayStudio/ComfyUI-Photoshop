@@ -68,10 +68,10 @@ async function nodeDefs(types) {
     return Object.assign({}, ...found);
 }
 
-/* ComfyUI's template catalog as one list, each template with its category title. */
+/* ComfyUI's template catalog as one list, each template with its category title and type. */
 async function templates() {
     const index = await request("/templates/index.json");
-    return index.flatMap((category) => category.templates.map((t) => ({ ...t, category: category.title })));
+    return index.flatMap((category) => category.templates.map((t) => ({ ...t, category: category.title, categoryType: category.type })));
 }
 
 function template(name) {

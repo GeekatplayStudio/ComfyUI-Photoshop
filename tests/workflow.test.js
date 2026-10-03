@@ -166,7 +166,10 @@ test("workflowParams lists the exposed inputs, then the usual sampling and model
     const targets = resolveTargets(PLAIN);
     const usual = workflowParams(PLAIN, defs, [], targets);
     assert.deepEqual(usual.map((p) => `${p.id}/${p.key}`), ["1/ckpt_name", "3/text", "6/width", "6/height", "7/seed"], "the prompt, links and inputs without a definition are left out");
-    assert.deepEqual(usual[4], { id: "7", key: "seed", label: "seed", group: "KSampler (#7)", type: "INT", min: 0, value: 1 });
+    assert.deepEqual(usual[4], { id: "7", key: "seed", label: "seed", group: "KSampler", type: "INT", min: 0, value: 1 });
+    assert.deepEqual(usual.slice(1, 2).map((p) => p.group), ["Negative"], "groups are named by node title");
+    const twin = { ...PLAIN, "9": { class_type: "KSampler", inputs: { seed: 2 } } };
+    assert.deepEqual(workflowParams(twin, defs, [], targets).filter((p) => p.key === "seed").map((p) => p.group), ["KSampler (#7)", "KSampler (#9)"], "same-named nodes get their id");
     assert.deepEqual(usual[0].options, ["a.safetensors"]);
     assert.equal(usual[1].multiline, true);
 
@@ -182,7 +185,7 @@ test("workflowParams lists the exposed inputs, then the usual sampling and model
     };
     const api = { "1": { class_type: "ResizeImageMaskNode", inputs: { resize_type: "scale by multiplier", "resize_type.multiplier": 4 } } };
     assert.deepEqual(workflowParams(api, resize, [], { image: [], prompt: [] }), [
-        { id: "1", key: "resize_type.multiplier", label: "resize_type.multiplier", group: "ResizeImageMaskNode (#1)", type: "FLOAT", min: 0.01, max: 8, value: 4 },
+        { id: "1", key: "resize_type.multiplier", label: "resize_type.multiplier", group: "ResizeImageMaskNode", type: "FLOAT", min: 0.01, max: 8, value: 4 },
     ], "an option of the chosen dynamic combo entry is a setting; the combo itself is not");
 });
 

@@ -16,6 +16,7 @@ $ErrorActionPreference = "Stop"
 $Pack = Split-Path -Parent $PSScriptRoot
 $PackName = "ComfyUI-Geekatplay-Photoshop"
 $Ccx = Join-Path $Pack "build\GeekatplayComfyUIBridge.ccx"
+$PluginId = (Get-Content (Join-Path $Pack "photoshop\manifest.json") -Raw | ConvertFrom-Json).id
 
 function Step($n, $text) { Write-Host ""; Write-Host "  [$n/3] $text" -ForegroundColor Cyan }
 function Ok($text) { Write-Host "        OK  $text" -ForegroundColor Green }
@@ -135,8 +136,18 @@ function Install-Plugin {
         return
     }
     # An earlier version stays registered next to the new one unless it is removed first.
+    # Removing it also deletes the panel's settings, so they are put back afterwards.
+    $saved = @{}
+    foreach ($file in Get-ChildItem "$env:APPDATA\Adobe\UXP\PluginsStorage\PHSP\*\External\$PluginId\PluginData\settings.json" -ErrorAction SilentlyContinue) {
+        $saved[$file.FullName] = [IO.File]::ReadAllText($file.FullName)
+    }
     & $agent /remove "Geekatplay ComfyUI Bridge" 2>&1 | Out-Null
     $output = & $agent /install $Ccx 2>&1 | Out-String
+    foreach ($path in $saved.Keys) {
+        New-Item -ItemType Directory -Force (Split-Path $path) | Out-Null
+        [IO.File]::WriteAllText($path, $saved[$path])
+    }
+    if ($saved.Count) { Ok "Kept the panel's settings and workflows." }
     if ($LASTEXITCODE -eq 0) {
         Ok "Installed the ComfyUI Bridge panel."
         Say "Open Plugins > Geekatplay ComfyUI Bridge in Photoshop (restart Photoshop if it is not there yet)."

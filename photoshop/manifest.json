@@ -2,7 +2,7 @@
     "manifestVersion": 5,
     "id": "com.geekatplay.photoshop-comfyui-bridge",
     "name": "Geekatplay ComfyUI Bridge",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "main": "index.html",
     "host": {
         "app": "PS",
@@ -29,6 +29,7 @@
     "requiredPermissions": {
         "network": { "domains": "all" },
         "localFileSystem": "request",
-        "clipboard": "readAndWrite"
+        "clipboard": "readAndWrite",
+        "launchProcess": { "schemes": ["https"], "extensions": [""] }
     }
 }
