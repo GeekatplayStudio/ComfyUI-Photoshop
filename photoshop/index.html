@@ -49,6 +49,11 @@
         <sp-action-button id="copy-models" class="hidden" quiet>Copy download links</sp-action-button>
         <sp-label>Prompt (empty = the prompt saved in the workflow)</sp-label>
         <sp-textarea id="prompt"></sp-textarea>
+        <div class="row run-row">
+            <sp-button id="run" variant="cta">Run</sp-button>
+            <sp-button id="cancel" variant="secondary" quiet>Cancel</sp-button>
+            <sp-checkbox id="randomize-seed" class="push-right">New seed each run</sp-checkbox>
+        </div>
         <sp-label>Inputs</sp-label>
         <div id="inputs"></div>
         <sp-body size="XS" id="inputs-hint" class="hint"></sp-body>
@@ -58,11 +63,6 @@
             <sp-action-button id="reset-params" size="s" quiet>Reset</sp-action-button>
         </div>
         <div id="params"></div>
-        <sp-checkbox id="randomize-seed">New seed each run</sp-checkbox>
-        <div class="row">
-            <sp-button id="run" variant="cta">Run</sp-button>
-            <sp-button id="cancel" variant="secondary" quiet>Cancel</sp-button>
-        </div>
     </section>
 
     <section id="page-settings" class="page hidden">

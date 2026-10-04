@@ -109,6 +109,7 @@ English
 - Refresh button; the panel reconnects by itself and keeps its lists when ComfyUI restarts.
 - New built-in workflows: Depth Map (Marigold V2) and Upscale 4x (SeedVR2 7B).
 - Setup steps and a link to the guide when ComfyUI is not reachable.
+- Run and Cancel sit right under the prompt.
 ```
 
 ## Note for Adobe reviewers (1000)

@@ -160,7 +160,8 @@ installer keeps your server address, added workflows and their settings.
 
 ### Workflows tab - run a workflow from Photoshop
 
-Pick a workflow, type a prompt, press **Run**. ComfyUI runs it without the browser.
+Pick a workflow, type a prompt, press **Run** - it sits right under the prompt, next to
+**Cancel** and **New seed each run**. ComfyUI runs the workflow without the browser.
 
 | The workflow has | What is sent | Where the result goes |
 | --- | --- | --- |
@@ -177,7 +178,7 @@ Pick a workflow, type a prompt, press **Run**. ComfyUI runs it without the brows
 - **Refresh** (next to the connection status) reads everything from ComfyUI again: the
   model lists, the built-in workflows, the template list and the selected workflow. Press
   it after adding models, editing a workflow in ComfyUI or restarting ComfyUI.
-- **New seed each run** gives every `seed` / `noise_seed` a new value.
+- **New seed each run** (next to Run) gives every `seed` / `noise_seed` a new value.
 - When you run a workflow that loads other models than the previous one, the panel first
   asks ComfyUI to unload its models and clear its cache, so the new models start with
   free memory. Running the same models again keeps them loaded.

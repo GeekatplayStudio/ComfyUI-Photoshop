@@ -103,6 +103,14 @@ body > * {
     flex: 1 1 auto;
 }
 
+.run-row {
+    margin-bottom: 12px;
+}
+
+.push-right {
+    margin-left: auto;
+}
+
 select,
 sp-textfield,
 sp-textarea {
