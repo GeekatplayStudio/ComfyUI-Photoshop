@@ -11,6 +11,8 @@ PACK_NAME="ComfyUI-Geekatplay-Photoshop"
 CCX="$PACK/build/GeekatplayComfyUIBridge.ccx"
 PLUGIN_ID="$(sed -n 's/.*"id": *"\([^"]*\)".*/\1/p' "$PACK/photoshop/manifest.json" | head -n 1)"
 STORAGE="$HOME/Library/Application Support/Adobe/UXP/PluginsStorage/PHSP"
+# The plugin ID used before the Creative Cloud Marketplace listing; its settings move to the current ID.
+PREVIOUS_ID="com.geekatplay.photoshop-comfyui-bridge"
 AGENT="/Library/Application Support/Adobe/Adobe Desktop Common/RemoteComponents/UPI/UnifiedPluginInstallerAgent/UnifiedPluginInstallerAgent.app/Contents/MacOS/UnifiedPluginInstallerAgent"
 
 step() { printf '\n  [%s/3] %s\n' "$1" "$2"; }
@@ -93,19 +95,25 @@ install_plugin() {
         manual_steps
         return
     fi
-    local output backup settings
+    local output backup settings id target
     # An earlier version stays registered next to the new one unless it is removed first.
-    # Removing it also deletes the panel's settings, so they are put back afterwards.
+    # Removing it also deletes the panel's settings, so they are put back before the new
+    # version is installed - Photoshop loads the panel, and reads them, right away.
     backup="$(mktemp -d)"
-    for settings in "$STORAGE"/*/External/"$PLUGIN_ID"/PluginData/settings.json; do
-        [ -f "$settings" ] || continue
-        mkdir -p "$backup/$(dirname "${settings#$STORAGE/}")" && cp "$settings" "$backup/${settings#$STORAGE/}"
+    for id in "$PLUGIN_ID" "$PREVIOUS_ID"; do
+        for settings in "$STORAGE"/*/External/"$id"/PluginData/settings.json; do
+            [ -f "$settings" ] || continue
+            target="${settings#$STORAGE/}"
+            target="${target/\/External\/$id\//\/External\/$PLUGIN_ID\/}"
+            [ -f "$backup/$target" ] && continue
+            mkdir -p "$backup/$(dirname "$target")" && cp "$settings" "$backup/$target"
+        done
     done
     "$AGENT" --remove "Geekatplay ComfyUI Bridge" >/dev/null 2>&1
+    (cd "$backup" && find . -name settings.json) | while read -r settings; do
+        mkdir -p "$STORAGE/$(dirname "$settings")" && cp "$backup/$settings" "$STORAGE/$settings"
+    done
     if output="$("$AGENT" --install "$CCX" 2>&1)"; then
-        (cd "$backup" && find . -name settings.json) | while read -r settings; do
-            mkdir -p "$STORAGE/$(dirname "$settings")" && cp "$backup/$settings" "$STORAGE/$settings"
-        done
         ok "Installed the ComfyUI Bridge panel."
         say "Open Plugins > Geekatplay ComfyUI Bridge in Photoshop (restart Photoshop if it is not there yet)."
     else

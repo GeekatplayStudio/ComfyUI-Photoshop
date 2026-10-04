@@ -20,10 +20,10 @@ Everything needed to list **Geekatplay ComfyUI Bridge** through
    `assets/publisher-logo-250.png`.
 2. **Create the listing.** *Create New Listing > Creative Cloud desktop plugin >
    Photoshop*, plugin type UXP. Copy the **plugin ID** the portal generates.
-3. **Put the ID in the manifest.** Replace the `id` value in `photoshop/manifest.json`
-   with that ID, raise `version` if this version number was uploaded before, and commit.
-   The installers read the ID from the manifest, so nothing else changes. Plugin storage
-   belongs to the ID: a panel installed under the old ID keeps its own settings.
+3. **Put the ID in the manifest.** Done for this listing: `photoshop/manifest.json` has the
+   ID `8393516f`. Raise `version` there before uploading a new build. The installers read
+   the ID from the manifest and carry the settings of a panel installed under the earlier
+   ID (`com.geekatplay.photoshop-comfyui-bridge`) over to it.
 4. **Package.** In the Adobe UXP Developer Tool: *Add Plugin* > `photoshop/manifest.json`,
    then the row's **...** menu > **Package**. This writes the `.ccx` file to upload.
    Running the installer also builds the same package as `build/GeekatplayComfyUIBridge.ccx`

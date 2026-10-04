@@ -17,6 +17,8 @@ $Pack = Split-Path -Parent $PSScriptRoot
 $PackName = "ComfyUI-Geekatplay-Photoshop"
 $Ccx = Join-Path $Pack "build\GeekatplayComfyUIBridge.ccx"
 $PluginId = (Get-Content (Join-Path $Pack "photoshop\manifest.json") -Raw | ConvertFrom-Json).id
+# The plugin ID used before the Creative Cloud Marketplace listing; its settings move to the current ID.
+$PreviousId = "com.geekatplay.photoshop-comfyui-bridge"
 
 function Step($n, $text) { Write-Host ""; Write-Host "  [$n/3] $text" -ForegroundColor Cyan }
 function Ok($text) { Write-Host "        OK  $text" -ForegroundColor Green }
@@ -136,17 +138,21 @@ function Install-Plugin {
         return
     }
     # An earlier version stays registered next to the new one unless it is removed first.
-    # Removing it also deletes the panel's settings, so they are put back afterwards.
+    # Removing it also deletes the panel's settings, so they are put back before the new
+    # version is installed - Photoshop loads the panel, and reads them, right away.
     $saved = @{}
-    foreach ($file in Get-ChildItem "$env:APPDATA\Adobe\UXP\PluginsStorage\PHSP\*\External\$PluginId\PluginData\settings.json" -ErrorAction SilentlyContinue) {
-        $saved[$file.FullName] = [IO.File]::ReadAllText($file.FullName)
+    foreach ($id in @($PluginId, $PreviousId)) {
+        foreach ($file in Get-ChildItem "$env:APPDATA\Adobe\UXP\PluginsStorage\PHSP\*\External\$id\PluginData\settings.json" -ErrorAction SilentlyContinue) {
+            $target = $file.FullName.Replace("\External\$id\", "\External\$PluginId\")
+            if (-not $saved.ContainsKey($target)) { $saved[$target] = [IO.File]::ReadAllText($file.FullName) }
+        }
     }
     & $agent /remove "Geekatplay ComfyUI Bridge" 2>&1 | Out-Null
-    $output = & $agent /install $Ccx 2>&1 | Out-String
     foreach ($path in $saved.Keys) {
         New-Item -ItemType Directory -Force (Split-Path $path) | Out-Null
         [IO.File]::WriteAllText($path, $saved[$path])
     }
+    $output = & $agent /install $Ccx 2>&1 | Out-String
     if ($saved.Count) { Ok "Kept the panel's settings and workflows." }
     if ($LASTEXITCODE -eq 0) {
         Ok "Installed the ComfyUI Bridge panel."
